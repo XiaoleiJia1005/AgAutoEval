@@ -1,0 +1,48 @@
+# AgAutoEval Example Configuration
+# Usage: python -m agautoeval configs/example.yaml
+
+agent:
+  type: opencode
+  command: opencode
+  env: {}
+  timeout: 1800
+
+sandbox:
+  image: python:3.10-slim
+  setup_commands:
+    - "pip install -q opencode-cli"
+
+# ── Dataset ──────────────────────────────────────────
+# provider options:
+#   local       - JSON file on local filesystem
+#   huggingface - dataset from HuggingFace Hub
+#   url         - JSON fetched from a URL
+dataset:
+  provider: local
+  path: swe_verified.json
+  type: swe_bench
+  # split: test          # HF split name
+  # name: null           # HF config/subset
+  # token: null          # HF token for private datasets
+
+# ── HuggingFace example ──────────────────────────────
+# dataset:
+#   provider: huggingface
+#   path: princeton-nlp/SWE-bench_Verified
+#   split: test
+#   type: swe_bench
+
+# ── URL example ──────────────────────────────────────
+# dataset:
+#   provider: url
+#   path: https://example.com/swe_dataset.json
+#   type: swe_bench
+
+execution:
+  max_workers: 4
+  timeout: 3600
+  retries: 0
+
+output:
+  dir: results
+  log_level: INFO

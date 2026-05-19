@@ -3,10 +3,11 @@
 Creates per-task log directories and provides both file and console logging.
 """
 
+import json
 import logging
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 
 class TaskLogger:
@@ -15,12 +16,10 @@ class TaskLogger:
     def __init__(self, output_dir: Path, log_level: str = "INFO"):
         self.output_dir = Path(output_dir)
         self.log_level = log_level.upper()
-        self._start_time = datetime.now(timezone.utc)
 
         self._root_logger = logging.getLogger("agautoeval")
         self._root_logger.setLevel(getattr(logging, self.log_level))
         self._root_logger.handlers.clear()
-
         self._setup_console_handler()
 
     def _setup_console_handler(self):
@@ -42,10 +41,17 @@ class TaskLogger:
         return task_dir
 
     def write_task_log(self, instance_id: str, filename: str, content: str):
-        """Write content to a task-specific log file."""
+        """Write text content to a task-specific log file."""
         task_dir = self._log_dir(instance_id)
         task_dir.mkdir(parents=True, exist_ok=True)
         (task_dir / filename).write_text(content)
+
+    def write_task_json(self, instance_id: str, filename: str, data: Any):
+        """Write JSON data to a task-specific file."""
+        task_dir = self._log_dir(instance_id)
+        task_dir.mkdir(parents=True, exist_ok=True)
+        with open(task_dir / filename, "w") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False, default=str)
 
     def info(self, msg: str):
         self._root_logger.info(msg)

@@ -100,14 +100,19 @@ results/
 ├── results.json                        # Final scores + per-task details
 └── logs/
     └── {instance_id}/
+        ├── task_info.json              # Always: task metadata + image + problem
+        ├── agent_cmd.json              # Agent mode: exact command executed
+        ├── agent_stdout.log            # Always: agent raw stdout
+        ├── agent_stderr.log            # Always: agent raw stderr
+        ├── patch.diff                  # Always: extracted unified diff
+        ├── result.json                 # Always: per-task result + timing
         ├── sandbox_clone.log
         ├── sandbox_checkout.log
         ├── sandbox_install_tools.log
         ├── sandbox_install_repo.log
-        ├── agent_stdout.log
-        ├── agent_stderr.log
         ├── test_output.log
         ├── f2p_failures.log            # Only if F2P failures exist
         ├── p2p_failures.log            # Only if P2P failures exist
+        ├── patch_error.log             # Only if patch apply failed
         └── error.log                   # Only if exception occurred
 ```

@@ -108,16 +108,20 @@ create_agent("opencode", command="...", timeout=...) -> BaseAgent
 Log files per task:
 | File | Content |
 |------|---------|
+| `task_info.json` | Task metadata (repo, commit, image, problem_statement) |
+| `agent_cmd.json` | Exact agent command executed |
+| `agent_stdout.log` | Agent stdout (raw output) |
+| `agent_stderr.log` | Agent stderr |
+| `patch.diff` | Extracted unified diff patch |
 | `sandbox_clone.log` | Git clone output |
 | `sandbox_checkout.log` | Commit checkout |
 | `sandbox_install_tools.log` | apt-get / pip install |
 | `sandbox_install_repo.log` | pip install -e /repo |
-| `agent_stdout.log` | Agent stdout (contains patch) |
-| `agent_stderr.log` | Agent stderr |
 | `patch_error.log` | git apply failure detail |
 | `test_output.log` | F2P/P2P evaluation summary |
 | `f2p_failures.log` | Failed F2P tests |
 | `p2p_failures.log` | Failed P2P tests |
+| `result.json` | Per-task result (resolved, timing, scores) |
 | `error.log` | Unexpected exceptions |
 
 ## scorer.py — Scoring

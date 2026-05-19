@@ -103,12 +103,28 @@ class Executor:
     def _run_one(self, task: Task) -> TaskResult:
         result = TaskResult(task.instance_id)
         start = time.monotonic()
+        timing: dict[str, float] = {}
+
         # Resolve per-task image template
         task_fields = task.model_dump()
         task_fields["repo_owner"] = task.repo.split("/")[0] if "/" in task.repo else task.repo
         task_fields["repo_name"] = task.repo.split("/")[1] if "/" in task.repo else task.repo
         image = self.config.sandbox.resolve_image(task_fields)
         setup_cmds = self.config.sandbox.resolve_setup_commands(task_fields)
+
+        # ── Save task metadata ─────────────────────────────────
+        self.logger.write_task_json(task.instance_id, "task_info.json", {
+            "instance_id": task.instance_id,
+            "repo": task.repo,
+            "base_commit": task.base_commit,
+            "version": task.version,
+            "image": image,
+            "mode": self.config.sandbox.mode,
+            "agent_type": self.config.agent.type,
+            "f2p_count": len(task.fail_to_pass),
+            "p2p_count": len(task.pass_to_pass),
+            "problem_statement": task.problem_statement,
+        })
 
         sb = DockerSandbox(
             image=image,
@@ -122,7 +138,9 @@ class Executor:
         try:
             # ── Step 1: Create container and prepare repo ──────────
             self.logger.info(f"[{task.instance_id}] Starting Docker container...")
+            t0 = time.monotonic()
             prep = sb.prepare(task)
+            timing["prepare"] = time.monotonic() - t0
             result.sandbox_logs = prep.logs
 
             for name, content in prep.logs.items():
@@ -134,20 +152,28 @@ class Executor:
                 result.error = prep.error
                 self.logger.error(f"[{task.instance_id}] Sandbox failed: {prep.error}")
                 result.duration = time.monotonic() - start
+                self._save_result(task.instance_id, result, timing)
                 return result
 
             # ── Step 2: Run agent inside container ─────────────────
             self.logger.info(f"[{task.instance_id}] Running agent in container...")
+            t0 = time.monotonic()
             if self.config.agent.type == "mock":
                 agent_stdout, agent_stderr, agent_rc, agent_dur = \
                     self._run_mock_agent(task)
             else:
                 agent_cmd = self._build_agent_cmd(task.problem_statement)
+                # Save the exact command used
+                self.logger.write_task_json(task.instance_id, "agent_cmd.json", {
+                    "command": agent_cmd,
+                    "timeout": self.config.agent.timeout,
+                })
                 agent_stdout, agent_stderr, agent_rc, agent_dur = sb.run_agent_command(
                     agent_cmd,
                     task.problem_statement,
                     timeout=self.config.agent.timeout,
                 )
+            timing["agent"] = time.monotonic() - t0
             result.agent_stdout = agent_stdout
             result.agent_stderr = agent_stderr
             result.agent_duration = agent_dur
@@ -163,26 +189,32 @@ class Executor:
                 result.error = f"Agent exited with code {agent_rc}"
                 self.logger.error(f"[{task.instance_id}] {result.error}")
                 result.duration = time.monotonic() - start
+                self._save_result(task.instance_id, result, timing)
                 return result
 
-            # ── Step 3: Extract patch from agent output ────────────
+            # ── Step 3: Extract and save patch ────────────────────
             patch = self._extract_patch(agent_stdout)
+            self.logger.write_task_log(task.instance_id, "patch.diff", patch)
 
             if not patch.strip():
                 result.error = "Agent produced no patch"
                 self.logger.warning(f"[{task.instance_id}] Empty patch")
                 result.duration = time.monotonic() - start
+                self._save_result(task.instance_id, result, timing)
                 return result
 
             # ── Step 4: Apply patch inside container ───────────────
             self.logger.info(f"[{task.instance_id}] Applying patch...")
+            t0 = time.monotonic()
             patch_res = sb.apply_patch(patch)
+            timing["apply_patch"] = time.monotonic() - t0
             if not patch_res.passed:
                 result.error = patch_res.error
                 self.logger.write_task_log(
                     task.instance_id, "patch_error.log", patch_res.error
                 )
                 result.duration = time.monotonic() - start
+                self._save_result(task.instance_id, result, timing)
                 return result
 
             # ── Step 5: Evaluate (SWE-bench protocol) ────────────
@@ -190,7 +222,9 @@ class Executor:
                 f"[{task.instance_id}] Running evaluation "
                 f"(F2P={len(task.fail_to_pass)}, P2P={len(task.pass_to_pass)})..."
             )
+            t0 = time.monotonic()
             test_res = sb.evaluate(task.fail_to_pass, task.pass_to_pass)
+            timing["evaluate"] = time.monotonic() - t0
             result.test_output = test_res.test_output
             result.resolved = test_res.resolved
             result.f2p_total = test_res.f2p_total
@@ -226,11 +260,29 @@ class Executor:
 
         finally:
             # ── Cleanup: destroy container ─────────────────────────
+            t0 = time.monotonic()
             self.logger.info(f"[{task.instance_id}] Cleaning up container...")
             sb.cleanup()
+            timing["cleanup"] = time.monotonic() - t0
             result.duration = time.monotonic() - start
+            self._save_result(task.instance_id, result, timing)
 
         return result
+
+    def _save_result(
+        self, instance_id: str, result: TaskResult, timing: dict[str, float]
+    ) -> None:
+        """Save per-task result and timing as JSON."""
+        self.logger.write_task_json(instance_id, "result.json", {
+            "instance_id": result.instance_id,
+            "resolved": result.resolved,
+            "error": result.error,
+            "duration": result.duration,
+            "agent_duration": result.agent_duration,
+            "f2p": f"{result.f2p_passed}/{result.f2p_total}" if result.f2p_total else None,
+            "p2p": f"{result.p2p_passed}/{result.p2p_total}" if result.p2p_total else None,
+            "timing": timing,
+        })
 
     def _run_mock_agent(self, task: Task) -> tuple:
         """Mock agent: returns the task's ground truth patch as a 'perfect agent'."""

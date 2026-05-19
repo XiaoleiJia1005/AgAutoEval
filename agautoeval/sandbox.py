@@ -48,24 +48,28 @@ class SandboxResult:
 class DockerSandbox:
     """Per-task Docker container for fully isolated agent execution."""
 
-    DEFAULT_IMAGE = "python:3.10-slim"
-
     def __init__(
         self,
-        image: str | None = None,
+        image: str,
         timeout: int = 600,
+        mode: str = "auto",
+        repo_path: str = "/repo",
         setup_commands: list[str] | None = None,
+        cleanup_image: bool = False,
     ):
-        self.image = image or self.DEFAULT_IMAGE
+        self.image = image
         self.timeout = timeout
+        self.mode = mode
+        self.repo_path = repo_path
         self.setup_commands = setup_commands or []
+        self.cleanup_image = cleanup_image
         self._container_name: str | None = None
         self._created: bool = False
 
     # ── lifecycle ──────────────────────────────────────────────────
 
     def prepare(self, task: Task) -> SandboxResult:
-        """Create container, clone repo, checkout base commit, install tools."""
+        """Create container, set up repo (clone or use prebuilt)."""
         logs: dict[str, str] = {}
         start = time.monotonic()
         self._container_name = f"agautoeval_{task.instance_id}"
@@ -75,7 +79,7 @@ class DockerSandbox:
                 [
                     "docker", "run", "-d", "--rm",
                     "--name", self._container_name,
-                    "-w", "/repo",
+                    "-w", self.repo_path,
                     self.image,
                     "sleep", "infinity",
                 ],
@@ -83,29 +87,10 @@ class DockerSandbox:
             )
             self._created = True
 
-            install_cmd = (
-                "apt-get update -qq && apt-get install -y -qq git 2>&1 && "
-                "pip install -q pytest 2>&1"
-            )
-            for sc in self.setup_commands:
-                install_cmd += f" && {sc}"
-            install_output = self.exec(
-                ["bash", "-c", install_cmd],
-                cwd="/",
-            )
-            logs["install_tools"] = install_output[0]
-
-            if task.repo.startswith("file://") or task.repo.startswith("/"):
-                self._prepare_repo_via_host(task, logs)
+            if self.mode == "prebuilt":
+                self._prepare_prebuilt(task, logs)
             else:
-                self._prepare_repo_in_container(task, logs)
-
-            # Install repo package
-            install_repo_out = self.exec(
-                ["bash", "-c", "pip install -q -e /repo 2>&1 || pip install -q /repo 2>&1"],
-                cwd="/repo",
-            )
-            logs["install_repo"] = install_repo_out[0]
+                self._prepare_auto(task, logs)
 
             return SandboxResult(
                 passed=True,
@@ -127,8 +112,45 @@ class DockerSandbox:
                 logs=logs,
             )
 
+    def _prepare_auto(self, task: Task, logs: dict) -> None:
+        """Auto mode: install tools, clone repo, install package."""
+        install_cmd = (
+            "apt-get update -qq && apt-get install -y -qq git 2>&1 && "
+            "pip install -q pytest 2>&1"
+        )
+        for sc in self.setup_commands:
+            install_cmd += f" && {sc}"
+        logs["install_tools"] = self.exec(
+            ["bash", "-c", install_cmd], cwd="/"
+        )[0]
+
+        if task.repo.startswith("file://") or task.repo.startswith("/"):
+            self._prepare_repo_via_host(task, logs)
+        else:
+            self._prepare_repo_in_container(task, logs)
+
+        logs["install_repo"] = self.exec(
+            ["bash", "-c",
+             f"pip install -q -e {self.repo_path} 2>&1 || pip install -q {self.repo_path} 2>&1"],
+            cwd=self.repo_path,
+        )[0]
+
+    def _prepare_prebuilt(self, task: Task, logs: dict) -> None:
+        """Prebuilt mode: repo and deps already in image. Only apply test_patch."""
+        if task.test_patch:
+            logs["apply_test_patch"] = self.exec(
+                ["git", "apply", "-"],
+                cwd=self.repo_path, stdin=task.test_patch,
+            )[0]
+        # Run any setup_commands (e.g., pip install pytest if missing)
+        if self.setup_commands:
+            cmds = " && ".join(self.setup_commands)
+            logs["setup"] = self.exec(
+                ["bash", "-c", cmds], cwd=self.repo_path,
+            )[0]
+
     def cleanup(self) -> None:
-        """Stop and remove the container."""
+        """Stop container and optionally remove image."""
         if not self._created or not self._container_name:
             return
         try:
@@ -139,6 +161,16 @@ class DockerSandbox:
             )
         except Exception:
             pass
+        # Container is auto-removed (--rm), now optionally remove image
+        if self.cleanup_image:
+            try:
+                subprocess.run(
+                    ["docker", "rmi", self.image],
+                    capture_output=True,
+                    timeout=30,
+                )
+            except Exception:
+                pass
 
     def _prepare_repo_via_host(self, task: Task, logs: dict) -> None:
         import tempfile
@@ -153,29 +185,29 @@ class DockerSandbox:
             logs["clone"] = "cloned on host"
             logs["checkout"] = f"checked out {task.base_commit}"
             self._exec_host(
-                ["docker", "cp", f"{host_repo}/.", f"{self._container_name}:/repo"],
+                ["docker", "cp", f"{host_repo}/.", f"{self._container_name}:{self.repo_path}"],
                 timeout=60,
             )
             if task.test_patch:
                 patch_out = self.exec(
                     ["git", "apply", "-"],
-                    cwd="/repo", stdin=task.test_patch,
+                    cwd=self.repo_path, stdin=task.test_patch,
                 )
                 logs["apply_test_patch"] = patch_out[0]
         finally:
             shutil.rmtree(host_dir, ignore_errors=True)
 
     def _prepare_repo_in_container(self, task: Task, logs: dict) -> None:
-        clone_out = self.exec(["git", "clone", task.repo, "/repo"], cwd="/")
+        clone_out = self.exec(["git", "clone", task.repo, self.repo_path], cwd="/")
         logs["clone"] = clone_out[0]
         checkout_out = self.exec(
-            ["git", "checkout", task.base_commit], cwd="/repo",
+            ["git", "checkout", task.base_commit], cwd=self.repo_path,
         )
         logs["checkout"] = checkout_out[0]
         if task.test_patch:
             patch_out = self.exec(
                 ["git", "apply", "-"],
-                cwd="/repo", stdin=task.test_patch,
+                cwd=self.repo_path, stdin=task.test_patch,
             )
             logs["apply_test_patch"] = patch_out[0]
 
@@ -235,7 +267,7 @@ class DockerSandbox:
         start = time.monotonic()
         stdout, stderr, rc = self.exec(
             agent_cmd,
-            cwd="/repo",
+            cwd=self.repo_path,
             stdin=problem_statement,
             timeout=timeout or self.timeout,
         )
@@ -249,7 +281,7 @@ class DockerSandbox:
         try:
             self.exec_check(
                 ["git", "apply", "--verbose", "-"],
-                cwd="/repo", stdin=patch,
+                cwd=self.repo_path, stdin=patch,
             )
             return SandboxResult(passed=True, duration=time.monotonic() - start)
         except subprocess.CalledProcessError as e:
@@ -335,7 +367,7 @@ class DockerSandbox:
             else:
                 cmd = ["python", "-m", "pytest", "-q", "--tb=no", "-k", test_spec]
 
-            stdout, stderr, rc = self.exec(cmd, cwd="/repo", timeout=timeout)
+            stdout, stderr, rc = self.exec(cmd, cwd=self.repo_path, timeout=timeout)
 
             if rc == 0:
                 passed += 1

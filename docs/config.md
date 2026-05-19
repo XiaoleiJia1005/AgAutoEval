@@ -10,9 +10,12 @@ agent:
   timeout: 1800            # Agent timeout (seconds)
 
 sandbox:
-  image: python:3.10-slim  # Docker image
+  mode: auto               # auto | prebuilt
+  repo_path: /repo         # Path inside container
+  image: python:3.10-slim  # Docker image (supports {field} templates)
   setup_commands:          # Commands run inside container during init
     - "pip install -q opencode-cli"
+  cleanup_image: false     # docker rmi after each task to save disk
 
 dataset:
   provider: local          # local | huggingface | url
@@ -84,17 +87,32 @@ sandbox:
 
 ```yaml
 sandbox:
-  image: swebench/sweb.eval.x86_64.sympy_1776_sympy-12481
-  setup_commands: []  # All deps pre-installed in image
+  mode: prebuilt
+  repo_path: /testbed
+  image: "swebench/sweb.eval.x86_64.{instance_id|split:__:0}_1776_{instance_id|split:__:1}"
+  cleanup_image: false
 ```
 
-The SWE-bench image naming convention is:
-`swebench/sweb.eval.{arch}.{owner}_{build}_{repo}-{issue}`
+Image template resolution uses task fields:
 
-| Arch | Platform |
-|------|----------|
-| `x86_64` | Intel/AMD (use `--platform linux/amd64` on Apple Silicon) |
-| `arm64` | Apple Silicon (limited availability) |
+| Template | Value from `sympy__sympy-12481` |
+|----------|-------------------------------|
+| `{instance_id}` | `sympy__sympy-12481` |
+| `{instance_id\|split:__:0}` | `sympy` |
+| `{instance_id\|split:__:1}` | `sympy-12481` |
+| `{repo}` | `sympy/sympy` |
+| `{repo_owner}` | `sympy` (auto-derived) |
+| `{repo_name}` | `sympy` (auto-derived) |
+| `{version}` | `1.0` |
+
+### Disk management
+
+```yaml
+sandbox:
+  cleanup_image: true   # docker rmi after each task
+```
+
+Set `cleanup_image: true` on disk-constrained machines. Each SWE-bench image is ~2-5 GB; without cleanup they accumulate quickly with hundreds of tasks.
 
 ## CLI Arguments
 

@@ -103,10 +103,20 @@ class Executor:
     def _run_one(self, task: Task) -> TaskResult:
         result = TaskResult(task.instance_id)
         start = time.monotonic()
+        # Resolve per-task image template
+        task_fields = task.model_dump()
+        task_fields["repo_owner"] = task.repo.split("/")[0] if "/" in task.repo else task.repo
+        task_fields["repo_name"] = task.repo.split("/")[1] if "/" in task.repo else task.repo
+        image = self.config.sandbox.resolve_image(task_fields)
+        setup_cmds = self.config.sandbox.resolve_setup_commands(task_fields)
+
         sb = DockerSandbox(
-            image=self.config.sandbox.image,
+            image=image,
             timeout=self.config.execution.timeout,
-            setup_commands=self.config.sandbox.setup_commands,
+            mode=self.config.sandbox.mode,
+            repo_path=self.config.sandbox.repo_path,
+            setup_commands=setup_cmds,
+            cleanup_image=self.config.sandbox.cleanup_image,
         )
 
         try:

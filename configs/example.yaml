@@ -7,36 +7,31 @@ agent:
   env: {}
   timeout: 1800
 
+# ── Sandbox ──────────────────────────────────────────
+# mode: auto       → install git, clone repo, pip install
+# mode: prebuilt   → repo + deps already in image (official SWE-bench)
+# repo_path:       → where the repo lives inside container
+# image:           → supports template variables from task fields:
+#   {field}               → direct value
+#   {field|split:d:i}     → split by delimiter, take index
+# cleanup_image: true     → docker rmi after each task (disk-constrained machines)
 sandbox:
-  image: python:3.10-slim
+  mode: prebuilt
+  repo_path: /testbed
+  image: "swebench/sweb.eval.x86_64.{instance_id|split:__:0}_1776_{instance_id|split:__:1}"
   setup_commands:
-    - "pip install -q opencode-cli"
+    - "pip install -q pytest"
+  cleanup_image: false
 
 # ── Dataset ──────────────────────────────────────────
-# provider options:
-#   local       - JSON file on local filesystem
-#   huggingface - dataset from HuggingFace Hub
-#   url         - JSON fetched from a URL
+# provider: local | huggingface | url
 dataset:
   provider: local
   path: swe_verified.json
   type: swe_bench
-  # split: test          # HF split name
-  # name: null           # HF config/subset
-  # token: null          # HF token for private datasets
-
-# ── HuggingFace example ──────────────────────────────
-# dataset:
-#   provider: huggingface
-#   path: princeton-nlp/SWE-bench_Verified
-#   split: test
-#   type: swe_bench
-
-# ── URL example ──────────────────────────────────────
-# dataset:
-#   provider: url
-#   path: https://example.com/swe_dataset.json
-#   type: swe_bench
+  # split: test
+  # name: null
+  # token: null
 
 execution:
   max_workers: 4

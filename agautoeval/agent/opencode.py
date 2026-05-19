@@ -16,8 +16,7 @@ class OpenCodeAgent(BaseAgent):
     def run(self, repo_path: str, problem_statement: str) -> AgentResult:
         cmd = [
             self.command,
-            "solve",
-            repo_path,
+            "run",
             problem_statement,
         ]
 

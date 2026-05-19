@@ -6,6 +6,9 @@ agent:
   command: opencode
   env: {}
   timeout: 1800
+  # persist:                  # Auto-mount container paths to host (optional)
+  #   - /workspace            #   → {instance_id}/mounts/workspace
+  #   - /root/.cache          #   → {instance_id}/mounts/root/.cache
 
 # ── Sandbox ──────────────────────────────────────────
 # mode: auto       → install git, clone repo, pip install
@@ -22,6 +25,15 @@ sandbox:
   setup_commands:
     - "pip install -q pytest"
   cleanup_image: false
+
+  # ── Bind mounts (optional) ─────────────────────────
+  # Persist container filesystem paths to the host.
+  # host_path supports {run_id} and all task field templates.
+  # Relative paths resolve against {output.dir}/{run_id}/{instance_id}/mounts.
+  # mounts:
+  #   - host_path: "workspace"
+  #     container_path: "/workspace"
+  #     mode: rw
 
 # ── Dataset ──────────────────────────────────────────
 # provider: local | huggingface | url

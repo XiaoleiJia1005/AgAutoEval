@@ -27,6 +27,12 @@ Slice the dataset:
 python -m agautoeval config.yaml --start 0 --end 100
 ```
 
+Custom run ID (for bind mount path organization):
+
+```bash
+python -m agautoeval config.yaml --run-id "experiment_42"
+```
+
 ## Config
 
 ```yaml

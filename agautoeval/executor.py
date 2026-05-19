@@ -61,10 +61,16 @@ class Executor:
     all execute inside the container, providing complete environment isolation.
     """
 
-    def __init__(self, config: Config, logger: TaskLogger):
+    def __init__(self, config: Config, logger: TaskLogger, run_id: str | None = None):
         self.config = config
         self.logger = logger
-        self.output_dir = Path(config.output.dir).resolve()
+        self.run_id = run_id or self._default_run_id()
+        self.output_dir = (Path(config.output.dir) / self.run_id).resolve()
+
+    @staticmethod
+    def _default_run_id() -> str:
+        from datetime import datetime
+        return datetime.now().strftime("%Y%m%d_%H%M%S")
 
     def run(self, tasks: list[Task]) -> list[TaskResult]:
         results: list[TaskResult] = []
@@ -112,6 +118,18 @@ class Executor:
         image = self.config.sandbox.resolve_image(task_fields)
         setup_cmds = self.config.sandbox.resolve_setup_commands(task_fields)
 
+        # Resolve bind mounts (relative paths resolve against task mount dir)
+        mount_base = str(self.output_dir / task.instance_id / "mounts")
+        mount_specs = self.config.sandbox.resolve_mounts(
+            task_fields, self.run_id, base_dir=mount_base,
+        )
+        mount_tuples = [(m.host_path, m.container_path, m.mode) for m in mount_specs]
+
+        # Auto-generate mounts from agent.persist paths
+        for cp in self.config.agent.persist:
+            host_path = str(Path(mount_base) / cp.lstrip("/"))
+            mount_tuples.append((host_path, cp, "rw"))
+
         # ── Save task metadata ─────────────────────────────────
         self.logger.write_task_json(task.instance_id, "task_info.json", {
             "instance_id": task.instance_id,
@@ -133,11 +151,17 @@ class Executor:
             repo_path=self.config.sandbox.repo_path,
             setup_commands=setup_cmds,
             cleanup_image=self.config.sandbox.cleanup_image,
+            mounts=mount_tuples,
         )
 
         try:
             # ── Step 1: Create container and prepare repo ──────────
             self.logger.info(f"[{task.instance_id}] Starting Docker container...")
+            for host_path, container_path, mode in mount_tuples:
+                self.logger.info(
+                    f"[{task.instance_id}] Mount: {host_path} "
+                    f"-> {container_path} ({mode})"
+                )
             t0 = time.monotonic()
             prep = sb.prepare(task)
             timing["prepare"] = time.monotonic() - t0
@@ -295,15 +319,13 @@ class Executor:
     def _build_agent_cmd(self, problem_statement: str) -> list[str]:
         """Build the agent command to run inside the container.
 
-        The agent command is constructed from config. The repo is at /repo
-        inside the container. The problem statement is passed via stdin.
+        The agent runs with cwd set to the repo path by the sandbox.
         """
         agent_cfg = self.config.agent
         if agent_cfg.type == "opencode":
             return [
                 agent_cfg.command,
-                "solve",
-                "/repo",
+                "run",
                 problem_statement,
             ]
         # Generic: just run the configured command with the problem on stdin

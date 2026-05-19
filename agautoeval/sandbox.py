@@ -56,6 +56,7 @@ class DockerSandbox:
         repo_path: str = "/repo",
         setup_commands: list[str] | None = None,
         cleanup_image: bool = False,
+        mounts: list[tuple[str, str, str]] | None = None,
     ):
         self.image = image
         self.timeout = timeout
@@ -63,6 +64,7 @@ class DockerSandbox:
         self.repo_path = repo_path
         self.setup_commands = setup_commands or []
         self.cleanup_image = cleanup_image
+        self.mounts = mounts or []
         self._container_name: str | None = None
         self._created: bool = False
 
@@ -75,16 +77,21 @@ class DockerSandbox:
         self._container_name = f"agautoeval_{task.instance_id}"
 
         try:
-            self._exec_host(
-                [
-                    "docker", "run", "-d", "--rm",
-                    "--name", self._container_name,
-                    "-w", self.repo_path,
-                    self.image,
-                    "sleep", "infinity",
-                ],
-                timeout=30,
-            )
+            # Create host directories for bind mounts
+            for host_path, _container_path, _mode in self.mounts:
+                Path(host_path).mkdir(parents=True, exist_ok=True)
+
+            # Build docker run command with bind mounts
+            docker_cmd = [
+                "docker", "run", "-d", "--rm",
+                "--name", self._container_name,
+                "-w", self.repo_path,
+            ]
+            for host_path, container_path, mode in self.mounts:
+                docker_cmd.extend(["-v", f"{host_path}:{container_path}:{mode}"])
+            docker_cmd.extend([self.image, "sleep", "infinity"])
+
+            self._exec_host(docker_cmd, timeout=30)
             self._created = True
 
             if self.mode == "prebuilt":

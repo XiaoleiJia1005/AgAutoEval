@@ -32,7 +32,7 @@ class TaskLogger:
         self._root_logger.addHandler(handler)
 
     def _log_dir(self, instance_id: str) -> Path:
-        return self.output_dir / "logs" / instance_id
+        return self.output_dir / instance_id / "results"
 
     def init_task(self, instance_id: str) -> Path:
         """Create log directory for a task and return it."""

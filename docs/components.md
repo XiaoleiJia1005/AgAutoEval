@@ -6,7 +6,7 @@ Loads and validates YAML config via pydantic.
 
 | Model | Key Fields | Purpose |
 |-------|-----------|---------|
-| `AgentConfig` | `type`, `command`, `env`, `timeout` | Agent identity and invocation |
+| `AgentConfig` | `type`, `command`, `env`, `timeout`, `persist` | Agent identity, invocation, and auto-mount paths |
 | `SandboxConfig` | `image`, `setup_commands` | Docker image + container init |
 | `DatasetConfig` | `path`, `provider`, `split`, `name`, `token` | Dataset source |
 | `ExecutionConfig` | `max_workers`, `timeout`, `retries` | Concurrency + limits |
@@ -103,7 +103,7 @@ create_agent("opencode", command="...", timeout=...) -> BaseAgent
 
 `TaskLogger` provides dual output:
 - **Console**: real-time progress via Python `logging`
-- **Files**: `{output_dir}/logs/{instance_id}/` with separate files per log category
+- **Files**: `{output_dir}/{instance_id}/results/` with separate files per log category
 
 Log files per task:
 | File | Content |

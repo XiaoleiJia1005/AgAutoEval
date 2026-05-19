@@ -96,23 +96,26 @@ Each task creates and destroys its own container. The container name includes th
 ## Output Structure
 
 ```
-results/
-├── results.json                        # Final scores + per-task details
-└── logs/
+{output_dir}/
+└── {run_id}/
+    ├── results.json                         # Final scores + per-task details
     └── {instance_id}/
-        ├── task_info.json              # Always: task metadata + image + problem
-        ├── agent_cmd.json              # Agent mode: exact command executed
-        ├── agent_stdout.log            # Always: agent raw stdout
-        ├── agent_stderr.log            # Always: agent raw stderr
-        ├── patch.diff                  # Always: extracted unified diff
-        ├── result.json                 # Always: per-task result + timing
-        ├── sandbox_clone.log
-        ├── sandbox_checkout.log
-        ├── sandbox_install_tools.log
-        ├── sandbox_install_repo.log
-        ├── test_output.log
-        ├── f2p_failures.log            # Only if F2P failures exist
-        ├── p2p_failures.log            # Only if P2P failures exist
-        ├── patch_error.log             # Only if patch apply failed
-        └── error.log                   # Only if exception occurred
+        ├── results/                         # Per-task logs and data
+        │   ├── task_info.json               # Task metadata + image + problem
+        │   ├── agent_cmd.json               # Agent mode: exact command executed
+        │   ├── agent_stdout.log             # Agent raw stdout
+        │   ├── agent_stderr.log             # Agent raw stderr
+        │   ├── patch.diff                   # Extracted unified diff
+        │   ├── result.json                  # Per-task result + timing
+        │   ├── sandbox_clone.log
+        │   ├── sandbox_checkout.log
+        │   ├── sandbox_install_tools.log
+        │   ├── sandbox_install_repo.log
+        │   ├── test_output.log
+        │   ├── f2p_failures.log             # Only if F2P failures exist
+        │   ├── p2p_failures.log             # Only if P2P failures exist
+        │   ├── patch_error.log              # Only if patch apply failed
+        │   └── error.log                    # Only if exception occurred
+        └── mounts/                          # Bind mount host paths
+            └── ...                          # (from persist or sandbox.mounts)
 ```

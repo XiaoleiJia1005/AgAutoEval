@@ -39,17 +39,28 @@ def main(argv: list[str] | None = None):
         default=None,
         help="Comma-separated list of specific instance IDs to run",
     )
+    parser.add_argument(
+        "--run-id",
+        type=str,
+        default=None,
+        help="Run identifier for bind mount path organization (default: auto-generated timestamp)",
+    )
     args = parser.parse_args(argv)
 
     # Load config
     print(f"Loading config: {args.config}")
     config = load_config(args.config)
 
+    # Determine run ID and create run directory
+    from datetime import datetime
+    run_id = args.run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = (Path(config.output.dir) / run_id).resolve()
+    run_dir.mkdir(parents=True, exist_ok=True)
+
     # Setup logger
-    output_dir = Path(config.output.dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    logger = TaskLogger(output_dir, config.output.log_level)
-    logger.info(f"Output directory: {output_dir.resolve()}")
+    logger = TaskLogger(run_dir, config.output.log_level)
+    logger.info(f"Run directory: {run_dir}")
+    logger.info(f"Run ID: {run_id}")
 
     # Load dataset
     logger.info(
@@ -72,13 +83,13 @@ def main(argv: list[str] | None = None):
         sys.exit(1)
 
     # Run evaluation
-    executor = Executor(config, logger)
+    executor = Executor(config, logger, run_id=run_id)
     results = executor.run(tasks)
 
     # Score and report
     report = compute_score(results)
     print_summary(report, results)
-    write_json(report, results, output_dir / "results.json")
+    write_json(report, results, run_dir / "results.json")
 
 
 if __name__ == "__main__":

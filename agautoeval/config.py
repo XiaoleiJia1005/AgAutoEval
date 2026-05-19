@@ -1,5 +1,6 @@
 """YAML configuration loading and pydantic validation."""
 
+import os
 import re
 from pathlib import Path
 from typing import Any, Literal
@@ -13,6 +14,14 @@ class AgentConfig(BaseModel):
     command: str = "opencode"
     env: dict[str, str] = Field(default_factory=dict)
     timeout: int = 1800
+    persist: list[str] = Field(default_factory=list)
+
+
+class MountSpec(BaseModel):
+    """Bind mount specification for persisting container data to the host."""
+    host_path: str  # supports {field} + {run_id} templates
+    container_path: str  # absolute path inside container
+    mode: Literal["rw", "ro"] = "rw"
 
 
 class SandboxConfig(BaseModel):
@@ -21,6 +30,7 @@ class SandboxConfig(BaseModel):
     repo_path: str = "/repo"  # path inside container where repo lives
     setup_commands: list[str] = Field(default_factory=list)
     cleanup_image: bool = False  # docker rmi after each task to save disk
+    mounts: list[MountSpec] = Field(default_factory=list)
 
     # ── template resolution ─────────────────────────────────────
 
@@ -41,6 +51,30 @@ class SandboxConfig(BaseModel):
     def resolve_setup_commands(self, task_fields: dict[str, Any]) -> list[str]:
         """Resolve template variables in each setup command."""
         return [self._resolve(cmd, task_fields) for cmd in self.setup_commands]
+
+    def resolve_mounts(
+        self,
+        task_fields: dict[str, Any],
+        run_id: str,
+        base_dir: str | Path | None = None,
+    ) -> "list[MountSpec]":
+        """Resolve template variables in mount host_path values.
+
+        Fields available: all task fields + {run_id}.
+        Relative host_path values are resolved against base_dir (defaults to cwd).
+        """
+        fields = {**task_fields, "run_id": run_id}
+        resolved: list[MountSpec] = []
+        for mount in self.mounts:
+            raw = self._resolve(mount.host_path, fields)
+            if not os.path.isabs(raw) and base_dir is not None:
+                raw = str(Path(base_dir) / raw)
+            resolved.append(MountSpec(
+                host_path=str(Path(raw).resolve()),
+                container_path=mount.container_path,
+                mode=mount.mode,
+            ))
+        return resolved
 
     @staticmethod
     def _resolve(template: str, fields: dict[str, Any]) -> str:

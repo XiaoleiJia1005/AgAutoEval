@@ -25,7 +25,7 @@
 │                    │               │                        │
 │               logger.py ◄─────────┘                        │
 │               scorer.py                                     │
-│               reporter.py ─► results.json + console        │
+│               reporter.py ─► console + {run_dir}/results.json
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -78,7 +78,7 @@ compute_score() ◄── [TaskResult, ...]
   │
   ▼
 print_summary()  ─►  console table
-write_json()     ─►  results.json
+write_json()     ─►  {run_dir}/results.json
 ```
 
 ## Isolation Model

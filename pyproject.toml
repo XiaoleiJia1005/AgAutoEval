@@ -16,3 +16,6 @@ dependencies = [
 
 [project.scripts]
 agautoeval = "agautoeval.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["agautoeval*"]

@@ -8,6 +8,9 @@ agent:
   command: opencode        # CLI command
   env: {}                  # Extra env vars
   timeout: 1800            # Agent timeout (seconds)
+  # persist:               # Auto-mount container paths to host (optional)
+  #   - /workspace
+  #   - /root/.cache
 
 sandbox:
   mode: auto               # auto | prebuilt
@@ -16,6 +19,10 @@ sandbox:
   setup_commands:          # Commands run inside container during init
     - "pip install -q opencode-cli"
   cleanup_image: false     # docker rmi after each task to save disk
+  # mounts:                # Bind mounts (optional) — persist container paths to host
+  #   - host_path: "workspace"   # relative → {output.dir}/{run_id}/{id}/mounts/workspace
+  #     container_path: "/workspace"
+  #     mode: rw
 
 dataset:
   provider: local          # local | huggingface | url
@@ -114,6 +121,76 @@ sandbox:
 
 Set `cleanup_image: true` on disk-constrained machines. Each SWE-bench image is ~2-5 GB; without cleanup they accumulate quickly with hundreds of tasks.
 
+## Bind Mounts
+
+Bind mounts persist files from inside the Docker container to the host filesystem. Use this to access agent-internal working files, cache directories, or any data the agent writes during execution.
+
+### Configuration
+
+```yaml
+sandbox:
+  mounts:
+    - host_path: "mounts/{run_id}/{instance_id}/workspace"
+      container_path: "/workspace"
+      mode: rw
+```
+
+### Template Variables
+
+`host_path` supports all template variables:
+
+| Variable | Resolves to |
+|----------|------------|
+| `{run_id}` | Auto-generated timestamp or `--run-id` value |
+| `{instance_id}` | Per-task instance identifier |
+| `{repo_owner}` | Repository owner (auto-derived) |
+| `{repo_name}` | Repository name (auto-derived) |
+| `{version}` | Task version string |
+
+All field templates (`{field}`, `{field|split:d:i}`) work in `host_path`.
+
+Relative `host_path` values are resolved against `{output.dir}/{run_id}/{instance_id}/mounts`. Absolute paths (e.g., `/data/shared`) are used as-is.
+
+### Recommended Structure
+
+```
+{output.dir}/
+└── {run_id}/
+    ├── results.json
+    └── {instance_id}/
+        ├── results/        (per-task logs, patch, result.json)
+        └── mounts/         (bind mount host paths)
+            ├── workspace/
+            └── cache/
+```
+
+### Notes
+
+- Host directories are created automatically if they don't exist.
+- Bind mounts do not affect the evaluation logic — they only provide host visibility into container files.
+
+### Agent persist (auto-mount shortcut)
+
+A simpler alternative to `sandbox.mounts`: list container paths you want persisted, and the harness auto-generates host paths.
+
+```yaml
+agent:
+  persist:
+    - /workspace
+    - /root/.cache
+```
+
+Host paths are auto-generated as:
+```
+{output.dir}/{run_id}/{instance_id}/mounts/{stripped_path}
+```
+
+For example, with `persist: [/workspace]` and instance `sympy__sympy-12481`:
+- Host: `results/20260519_150900/sympy__sympy-12481/mounts/workspace`
+- Container: `/workspace`
+
+`persist` and `sandbox.mounts` can be used together — both are applied.
+
 ## CLI Arguments
 
 ```
@@ -123,6 +200,7 @@ Options:
   --start N       Start at dataset index N (for slicing)
   --end N         End at dataset index N
   --instances ID  Run specific instances (comma-separated)
+  --run-id ID     Run identifier for bind mount organization (default: auto-generated timestamp)
 ```
 
 ### Examples
@@ -136,4 +214,7 @@ python -m agautoeval configs/example.yaml --start 0 --end 10
 
 # Run specific tasks
 python -m agautoeval configs/example.yaml --instances "sympy__sympy-12481,django__django-12345"
+
+# Run with a custom run ID for bind mount path organization
+python -m agautoeval configs/example.yaml --run-id "experiment_42"
 ```

@@ -18,19 +18,19 @@ python -m agautoeval configs/example.yaml
 Filter specific instances:
 
 ```bash
-python -m agautoeval config.yaml --instances "sympy__sympy-12481,django__django-12345"
+python -m agautoeval configs/example.yaml --instances "sympy__sympy-12481"
 ```
 
 Slice the dataset:
 
 ```bash
-python -m agautoeval config.yaml --start 0 --end 100
+python -m agautoeval configs/example.yaml --start 0 --end 100
 ```
 
 Custom run ID (for bind mount path organization):
 
 ```bash
-python -m agautoeval config.yaml --run-id "experiment_42"
+python -m agautoeval configs/example.yaml --run-id "experiment_42"
 ```
 
 ## Config

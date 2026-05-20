@@ -287,6 +287,9 @@ class Executor:
                 sb.exec(["git", "clean", "-fd"], cwd=repo)
                 patch = diff_out
             self.logger.write_task_log(task.instance_id, "patch.diff", patch)
+            self.logger.info(
+                f"[{task.instance_id}] Patch ({len(patch)} bytes):\n{patch.strip()[-2000:]}"
+            )
 
             if not patch.strip():
                 result.error = "Agent produced no changes"

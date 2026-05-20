@@ -73,6 +73,7 @@ class DockerSandbox:
         cleanup_image: bool = False,
         auto_pull_image: bool = True,
         mounts: list[tuple[str, str, str]] | None = None,
+        log=print,
     ):
         self.image = image
         self.timeout = timeout
@@ -82,6 +83,7 @@ class DockerSandbox:
         self.cleanup_image = cleanup_image
         self.auto_pull_image = auto_pull_image
         self.mounts = mounts or []
+        self._log = log
         self._container_name: str | None = None
         self._created: bool = False
 
@@ -102,7 +104,7 @@ class DockerSandbox:
                 f"\n  Pull it manually: docker pull {self.image}"
             )
 
-        print(f"Pulling image: {self.image}")
+        self._log(f"Pulling image: {self.image}")
         result = subprocess.run(
             ["docker", "pull", self.image],
             capture_output=False, text=True,
@@ -122,7 +124,7 @@ class DockerSandbox:
         if rc == 0:
             return
 
-        print(f"[{self._container_name}] npm not found, installing nvm + Node.js {min_version}...")
+        self._log(f"[{self._container_name}] npm not found, installing nvm + Node.js {min_version}...")
 
         # ── Install curl if needed for nvm installer ───────────
         NVM_DIR = "/root/.nvm"
@@ -139,7 +141,7 @@ class DockerSandbox:
             cwd="/", timeout=10,
         )
         if stdout.strip() != "1":
-            print(f"[{self._container_name}] Downloading nvm...")
+            self._log(f"[{self._container_name}] Downloading nvm...")
             self.exec(
                 ["bash", "-c",
                  f"(curl -fsSL {NVM_INSTALL_SCRIPT} || wget -qO- {NVM_INSTALL_SCRIPT}) | bash"],
@@ -147,7 +149,7 @@ class DockerSandbox:
             )
 
         # ── Install Node.js via nvm ────────────────────────────
-        print(f"[{self._container_name}] Installing Node.js {min_version} via nvm...")
+        self._log(f"[{self._container_name}] Installing Node.js {min_version} via nvm...")
         self.exec(
             ["bash", "-c",
              f'export NVM_DIR="{NVM_DIR}" && '
@@ -162,7 +164,7 @@ class DockerSandbox:
         stdout, _, rc = self.exec(["node", "--version"], cwd="/", timeout=30)
         if rc == 0:
             npm_ver, _, _ = self.exec(["npm", "--version"], cwd="/", timeout=30)
-            print(f"[{self._container_name}] Node.js {stdout.strip()}, npm {npm_ver.strip()}")
+            self._log(f"[{self._container_name}] Node.js {stdout.strip()}, npm {npm_ver.strip()}")
         else:
             raise RuntimeError("Node.js installation via nvm failed")
 

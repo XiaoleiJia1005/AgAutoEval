@@ -156,6 +156,7 @@ class Executor:
             cleanup_image=self.config.sandbox.cleanup_image,
             auto_pull_image=self.config.sandbox.auto_pull_image,
             mounts=mount_tuples,
+            log=self.logger.info,
         )
 
         try:
@@ -227,7 +228,6 @@ class Executor:
                     self.logger.warning(
                         f"[{task.instance_id}] version_cmd exited with code {rc}"
                     )
-                    time.sleep(1000)
 
             # ── Step 2: Run agent inside container ─────────────────
             self.logger.info(f"[{task.instance_id}] Running agent in container...")
@@ -238,6 +238,7 @@ class Executor:
                     self._run_mock_agent(task)
             else:
                 agent_cmd = self._build_agent_cmd(task.problem_statement)
+                self.logger.info(f"[{task.instance_id}] Agent cmd: {' '.join(agent_cmd)}")
                 # Save the exact command used
                 self.logger.write_task_json(task.instance_id, "agent_cmd.json", {
                     "command": agent_cmd,
@@ -260,6 +261,10 @@ class Executor:
             self.logger.write_task_log(
                 task.instance_id, "agent_stderr.log", agent_stderr
             )
+            if agent_stderr.strip():
+                self.logger.warning(
+                    f"[{task.instance_id}] Agent stderr: {agent_stderr.strip()[-500:]}"
+                )
 
             if agent_rc != 0:
                 result.error = f"Agent exited with code {agent_rc}"

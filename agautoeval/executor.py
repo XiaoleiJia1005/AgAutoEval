@@ -179,10 +179,23 @@ class Executor:
                 self._save_result(task.instance_id, result, timing)
                 return result
 
+            # ── Install agent tool if configured ───────────────────
+            if self.config.agent.install_cmd:
+                self.logger.info(
+                    f"[{task.instance_id}] Installing agent: "
+                    f"{self.config.agent.install_cmd}"
+                )
+                sb.exec(
+                    ["bash", "-c", self.config.agent.install_cmd],
+                    cwd="/",
+                    timeout=600,
+                )
+
             # ── Step 2: Run agent inside container ─────────────────
             self.logger.info(f"[{task.instance_id}] Running agent in container...")
             t0 = time.monotonic()
-            if self.config.agent.type == "mock":
+            is_mock = self.config.agent.type == "mock"
+            if is_mock:
                 agent_stdout, agent_stderr, agent_rc, agent_dur = \
                     self._run_mock_agent(task)
             else:
@@ -196,6 +209,7 @@ class Executor:
                     agent_cmd,
                     task.problem_statement,
                     timeout=self.config.agent.timeout,
+                    env=self.config.agent.env,
                 )
             timing["agent"] = time.monotonic() - t0
             result.agent_stdout = agent_stdout
@@ -216,12 +230,23 @@ class Executor:
                 self._save_result(task.instance_id, result, timing)
                 return result
 
-            # ── Step 3: Extract and save patch ────────────────────
-            patch = self._extract_patch(agent_stdout)
+            # ── Step 3: Extract patch ──────────────────────────────
+            if is_mock:
+                # Mock agent returns the ground-truth patch directly
+                patch = agent_stdout
+            else:
+                # Agent modifies the repo; capture all changes via git diff
+                repo = self.config.sandbox.repo_path
+                sb.exec(["git", "add", "-A"], cwd=repo)
+                diff_out, _, _ = sb.exec(["git", "diff", "--cached", "HEAD"], cwd=repo)
+                # Reset working tree to HEAD so patch can be applied cleanly
+                sb.exec(["git", "reset", "--hard", "HEAD"], cwd=repo)
+                sb.exec(["git", "clean", "-fd"], cwd=repo)
+                patch = diff_out
             self.logger.write_task_log(task.instance_id, "patch.diff", patch)
 
             if not patch.strip():
-                result.error = "Agent produced no patch"
+                result.error = "Agent produced no changes"
                 self.logger.warning(f"[{task.instance_id}] Empty patch")
                 result.duration = time.monotonic() - start
                 self._save_result(task.instance_id, result, timing)
@@ -319,45 +344,19 @@ class Executor:
     def _build_agent_cmd(self, problem_statement: str) -> list[str]:
         """Build the agent command to run inside the container.
 
-        The agent runs with cwd set to the repo path by the sandbox.
+        If the command contains {problem_statement}, it is resolved and the
+        full command runs via bash -c. Otherwise the bare command is returned
+        and the problem statement is passed on stdin.
         """
+        import shlex
         agent_cfg = self.config.agent
-        if agent_cfg.type == "opencode":
-            return [
-                agent_cfg.command,
-                "run",
-                problem_statement,
-            ]
-        # Generic: just run the configured command with the problem on stdin
+        cmd_str = agent_cfg.command
+
+        if "{problem_statement}" in cmd_str:
+            resolved = cmd_str.replace(
+                "{problem_statement}", shlex.quote(problem_statement),
+            )
+            return ["bash", "-c", resolved]
+
         return [agent_cfg.command]
 
-    # ── patch extraction ───────────────────────────────────────────
-
-    @staticmethod
-    def _extract_patch(stdout: str) -> str:
-        """Extract unified diff from agent stdout."""
-        import re
-        # Check for markdown-fenced diff
-        diff_re = re.compile(r"```diff\s*\n(.*?)```", re.DOTALL)
-        m = diff_re.search(stdout)
-        if m:
-            return m.group(1).strip() + "\n"
-
-        # Check if stdout already looks like a raw diff
-        if stdout.strip().startswith("diff "):
-            return stdout.strip() + "\n"
-
-        # Try to find raw diff by looking for diff headers
-        lines = stdout.splitlines()
-        diff_lines: list[str] = []
-        in_diff = False
-        for line in lines:
-            if line.startswith("diff ") or line.startswith("---") or line.startswith("+++"):
-                in_diff = True
-            if in_diff:
-                diff_lines.append(line)
-
-        if diff_lines:
-            return "\n".join(diff_lines) + "\n"
-
-        return stdout.strip() + "\n"

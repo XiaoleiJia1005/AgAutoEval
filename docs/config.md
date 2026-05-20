@@ -5,8 +5,9 @@
 ```yaml
 agent:
   type: opencode           # Agent type (opencode | mock)
-  command: opencode        # CLI command
-  env: {}                  # Extra env vars
+  install_cmd: ""          # Shell command to install the agent tool in the container
+  command: opencode        # CLI command; supports {problem_statement} template
+  env: {}                  # Extra env vars passed to the container (e.g., API keys)
   timeout: 1800            # Agent timeout (seconds)
   # persist:               # Auto-mount container paths to host (optional)
   #   - /workspace
@@ -190,6 +191,28 @@ For example, with `persist: [/workspace]` and instance `sympy__sympy-12481`:
 - Container: `/workspace`
 
 `persist` and `sandbox.mounts` can be used together — both are applied.
+
+### Agent install command
+
+Use `install_cmd` to install agent tools inside the container before evaluation. The command runs via `bash -c` after the sandbox is prepared.
+
+```yaml
+agent:
+  type: opencode
+  install_cmd: "npm install -g opencode-ai"
+  command: "opencode run --auto -m deepseek/deepseek-v4-pro {problem_statement}"
+```
+
+### Agent command template
+
+The `command` field supports a `{problem_statement}` template that gets replaced with the task's problem statement (shell-escaped). When the template is present, the command runs via `bash -c`; otherwise the bare command is invoked and the problem statement is passed on stdin.
+
+```yaml
+agent:
+  command: "opencode run --auto -m deepseek/deepseek-v4-pro {problem_statement}"
+```
+
+Environment variables from `agent.env` are passed to the container via `docker exec -e`.
 
 ## CLI Arguments
 

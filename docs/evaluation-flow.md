@@ -13,11 +13,13 @@ Each task goes through 6 steps inside its own Docker container:
 │         git checkout <base_commit>                          │
 │         pip install -e /repo                                │
 ├─────────────────────────────────────────────────────────────┤
-│ Step 2: docker exec agautoeval_{id} <agent_cmd>             │
-│         agent reads problem, modifies code, outputs diff    │
+│ Step 2: docker exec agautoeval_{id} bash -c "<agent_cmd>"   │
+│         agent modifies repo in-place; {problem_statement}    │
+│         template resolved in command string                  │
 ├─────────────────────────────────────────────────────────────┤
-│ Step 3: _extract_patch(stdout)                              │
-│         Parse ```diff fences or raw diff from agent output  │
+│ Step 3: git add -A && git diff --cached HEAD                │
+│         Capture all changes agent made to the repo           │
+│         Then git reset --hard HEAD + git clean -fd           │
 ├─────────────────────────────────────────────────────────────┤
 │ Step 4: docker exec agautoeval_{id} git apply - < patch     │
 ├─────────────────────────────────────────────────────────────┤

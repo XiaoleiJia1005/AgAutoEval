@@ -24,9 +24,9 @@ No test suite or linter is configured in this repo.
 
 AgAutoEval evaluates coding agents on SWE-bench Verified. Each task gets its own Docker container for complete environment isolation. The 6-step per-task pipeline is:
 
-1. **Prepare** — create container, install git/pytest, clone repo at commit, `pip install -e`
-2. **Run agent** — execute agent inside container via `docker exec`, pipe problem statement on stdin
-3. **Extract patch** — parse `` ```diff `` fences or raw diff headers from agent stdout
+1. **Prepare** — create container, install git/pytest, clone repo at commit, `pip install -e`, run `agent.install_cmd` if configured
+2. **Run agent** — execute agent via `docker exec` with `agent.env` vars; command supports `{problem_statement}` template
+3. **Extract patch** — `git add -A && git diff --cached HEAD` inside container, then reset to HEAD for clean apply
 4. **Apply patch** — `git apply` inside container
 5. **Evaluate** — run F2P (must now pass) and P2P (must still pass) tests; resolved = all pass
 6. **Cleanup** — `docker stop` container (auto-removed via `--rm`)

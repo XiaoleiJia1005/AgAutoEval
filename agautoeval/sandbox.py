@@ -226,6 +226,7 @@ class DockerSandbox:
         cwd: str | None = None,
         stdin: str | None = None,
         timeout: int | None = None,
+        env: dict[str, str] | None = None,
     ) -> Tuple[str, str, int]:
         """Execute a command inside the Docker container.
 
@@ -235,6 +236,9 @@ class DockerSandbox:
         docker_cmd = ["docker", "exec", "-i"]
         if cwd:
             docker_cmd.extend(["-w", cwd])
+        if env:
+            for k, v in env.items():
+                docker_cmd.extend(["-e", f"{k}={v}"])
         docker_cmd.append(self._container_name)
         docker_cmd.extend(cmd)
 
@@ -269,6 +273,7 @@ class DockerSandbox:
         agent_cmd: list[str],
         problem_statement: str,
         timeout: int | None = None,
+        env: dict[str, str] | None = None,
     ) -> Tuple[str, str, int, float]:
         """Run agent inside the container. Returns (stdout, stderr, rc, duration)."""
         start = time.monotonic()
@@ -277,6 +282,7 @@ class DockerSandbox:
             cwd=self.repo_path,
             stdin=problem_statement,
             timeout=timeout or self.timeout,
+            env=env,
         )
         return stdout, stderr, rc, time.monotonic() - start
 

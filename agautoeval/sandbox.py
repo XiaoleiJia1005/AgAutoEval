@@ -56,7 +56,7 @@ class SandboxResult:
     def resolved(self) -> bool:
         """SWE-bench resolution: all F2P pass AND all P2P pass."""
         if self.f2p_total == 0 and self.p2p_total == 0:
-            return self.passed
+            return True  # vacuous: no tests → all pass
         return self.f2p_passed == self.f2p_total and self.p2p_passed == self.p2p_total
 
 

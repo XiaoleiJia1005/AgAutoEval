@@ -79,10 +79,18 @@ class Executor:
         results: list[TaskResult] = []
         max_workers = self.config.execution.max_workers
 
+        total_f2p = sum(len(t.fail_to_pass) for t in tasks)
+        total_p2p = sum(len(t.pass_to_pass) for t in tasks)
         self.logger.info(
-            f"Running {len(tasks)} tasks with {max_workers} workers "
-            f"(each in its own Docker container)"
+            f"Running {len(tasks)} tasks ({total_f2p} F2P + {total_p2p} P2P) "
+            f"with {max_workers} workers (each in its own Docker container)"
         )
+        for t in tasks[:5]:
+            self.logger.info(
+                f"  {t.instance_id}: F2P={len(t.fail_to_pass)} P2P={len(t.pass_to_pass)}"
+            )
+        if len(tasks) > 5:
+            self.logger.info(f"  ... and {len(tasks) - 5} more")
 
         if max_workers <= 1:
             for task in tqdm(tasks, desc="Evaluating", unit="task"):
@@ -340,6 +348,14 @@ class Executor:
                     task.instance_id, "p2p_failures.log",
                     "\n".join(test_res.p2p_failures),
                 )
+
+            # ── Debug: log evaluation details ──────────────────────
+            self.logger.info(
+                f"[{task.instance_id}] Eval: "
+                f"F2P={result.f2p_passed}/{result.f2p_total} "
+                f"P2P={result.p2p_passed}/{result.p2p_total} "
+                f"resolved={result.resolved}"
+            )
 
             self.logger.info(
                 f"[{task.instance_id}] "

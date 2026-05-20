@@ -22,8 +22,8 @@ sandbox:
 
 # provider: local | huggingface | url
 dataset:
-  provider: local
-  path: swe_verified.json
+  provider: huggingface
+  path: SWE-bench/SWE-bench_Verified
   type: swe_bench
 
 execution:

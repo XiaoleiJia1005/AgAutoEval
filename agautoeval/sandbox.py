@@ -110,6 +110,65 @@ class DockerSandbox:
         if result.returncode != 0:
             raise RuntimeError(f"Failed to pull image '{self.image}' (exit code {result.returncode})")
 
+    def ensure_npm(self, min_version: str = "18") -> None:
+        """Ensure npm (via nvm-managed Node.js) is available inside the container.
+
+        Checks for npm; if missing, installs nvm then uses it to install
+        Node.js >= *min_version*. The node/npm binaries are symlinked to
+        /usr/local/bin so subsequent exec() calls find them on PATH.
+        """
+        # Check if npm already exists
+        _, _, rc = self.exec(["which", "npm"], cwd="/", timeout=30)
+        if rc == 0:
+            return
+
+        print(f"[{self._container_name}] npm not found, installing nvm + Node.js {min_version}...")
+
+        # ── Install curl if needed for nvm installer ───────────
+        NVM_DIR = "/root/.nvm"
+        NVM_INSTALL_SCRIPT = "https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
+
+        self.exec(
+            ["bash", "-c", "which curl || (apt-get update -qq && apt-get install -y -qq curl)"],
+            cwd="/", timeout=120,
+        )
+
+        # ── Install nvm ────────────────────────────────────────
+        stdout, _, rc = self.exec(
+            ["bash", "-c", f"test -d {NVM_DIR} && echo '1' || echo '0'"],
+            cwd="/", timeout=10,
+        )
+        if stdout.strip() != "1":
+            print(f"[{self._container_name}] Downloading nvm...")
+            self.exec(
+                ["bash", "-c",
+                 f"(curl -fsSL {NVM_INSTALL_SCRIPT} || wget -qO- {NVM_INSTALL_SCRIPT}) | bash"],
+                cwd="/", timeout=120,
+            )
+
+        # ── Install Node.js via nvm ────────────────────────────
+        print(f"[{self._container_name}] Installing Node.js {min_version} via nvm...")
+        self.exec(
+            ["bash", "-c",
+             f'export NVM_DIR="{NVM_DIR}" && '
+             f'[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && '
+             f'nvm install {min_version} && '
+             f'nvm alias default {min_version} && '
+             f'BIN_DIR=$(dirname "$(nvm which {min_version})") && '
+             f'ln -sf "$BIN_DIR/node" /usr/local/bin/node && '
+             f'ln -sf "$BIN_DIR/npm" /usr/local/bin/npm && '
+             f'ln -sf "$BIN_DIR/npx" /usr/local/bin/npx'],
+            cwd="/", timeout=300,
+        )
+
+        # ── Verify ─────────────────────────────────────────────
+        stdout, _, rc = self.exec(["node", "--version"], cwd="/", timeout=30)
+        if rc == 0:
+            npm_ver, _, _ = self.exec(["npm", "--version"], cwd="/", timeout=30)
+            print(f"[{self._container_name}] Node.js {stdout.strip()}, npm {npm_ver.strip()}")
+        else:
+            raise RuntimeError("Node.js installation via nvm failed")
+
     def prepare(self, task: Task) -> SandboxResult:
         """Create container, set up repo (clone or use prebuilt)."""
         logs: dict[str, str] = {}

@@ -185,6 +185,8 @@ class Executor:
 
             # ── Install agent tool if configured ───────────────────
             if self.config.agent.install_cmd:
+                # Ensure runtime deps (e.g. npm) are available
+                sb.ensure_npm()
                 self.logger.info(
                     f"[{task.instance_id}] Installing agent: "
                     f"{self.config.agent.install_cmd}"

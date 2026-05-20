@@ -28,7 +28,7 @@ dataset:
   type: swe_bench
 
 execution:
-  max_workers: 4
+  max_workers: 1
   timeout: 3600
   retries: 0
 

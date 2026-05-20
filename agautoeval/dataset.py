@@ -91,20 +91,24 @@ def _load_huggingface(
     ds = hf_load(dataset_id, **kwargs)
     rows = ds.to_list()
 
-    # HF stores F2P/P2P as JSON strings — parse them
+    # HF stores F2P/P2P as JSON strings — parse and normalize to lowercase
     for row in rows:
-        for field in ("fail_to_pass", "FAIL_TO_PASS"):
+        for field in ("FAIL_TO_PASS", "fail_to_pass"):
             if field in row and isinstance(row[field], str):
                 try:
-                    row[field] = json.loads(row[field])
+                    row["fail_to_pass"] = json.loads(row[field])
                 except (json.JSONDecodeError, TypeError):
                     pass
-        for field in ("pass_to_pass", "PASS_TO_PASS"):
+            elif field in row and isinstance(row[field], list):
+                row["fail_to_pass"] = row[field]
+        for field in ("PASS_TO_PASS", "pass_to_pass"):
             if field in row and isinstance(row[field], str):
                 try:
-                    row[field] = json.loads(row[field])
+                    row["pass_to_pass"] = json.loads(row[field])
                 except (json.JSONDecodeError, TypeError):
                     pass
+            elif field in row and isinstance(row[field], list):
+                row["pass_to_pass"] = row[field]
 
     return rows
 
@@ -156,20 +160,24 @@ def _load_huggingface_via_api(
             break
         offset += page_size
 
-    # Parse JSON-encoded F2P/P2P fields (same as _load_huggingface)
+    # Parse JSON-encoded F2P/P2P fields and normalize to lowercase
     for row in all_rows:
-        for field in ("fail_to_pass", "FAIL_TO_PASS"):
+        for field in ("FAIL_TO_PASS", "fail_to_pass"):
             if field in row and isinstance(row[field], str):
                 try:
-                    row[field] = json.loads(row[field])
+                    row["fail_to_pass"] = json.loads(row[field])
                 except (json.JSONDecodeError, TypeError):
                     pass
-        for field in ("pass_to_pass", "PASS_TO_PASS"):
+            elif field in row and isinstance(row[field], list):
+                row["fail_to_pass"] = row[field]
+        for field in ("PASS_TO_PASS", "pass_to_pass"):
             if field in row and isinstance(row[field], str):
                 try:
-                    row[field] = json.loads(row[field])
+                    row["pass_to_pass"] = json.loads(row[field])
                 except (json.JSONDecodeError, TypeError):
                     pass
+            elif field in row and isinstance(row[field], list):
+                row["pass_to_pass"] = row[field]
 
     return all_rows
 

@@ -387,19 +387,15 @@ class Executor:
     def _build_agent_cmd(self, problem_statement: str) -> list[str]:
         """Build the agent command to run inside the container.
 
-        If the command contains {problem_statement}, it is resolved and the
-        full command runs via bash -c. Otherwise the bare command is returned
-        and the problem statement is passed on stdin.
+        The command runs via bash -c. If it contains {problem_statement},
+        the template is resolved and shell-escaped.
         """
         import shlex
-        agent_cfg = self.config.agent
-        cmd_str = agent_cfg.command
+        cmd_str = self.config.agent.command
 
         if "{problem_statement}" in cmd_str:
-            resolved = cmd_str.replace(
+            cmd_str = cmd_str.replace(
                 "{problem_statement}", shlex.quote(problem_statement),
             )
-            return ["bash", "-c", resolved]
-
-        return [agent_cfg.command]
+        return ["bash", "-c", cmd_str]
 

@@ -115,32 +115,63 @@ def _load_huggingface_via_api(
     name: str | None = None,
     token: str | None = None,
 ) -> Any:
-    """Fallback: load via HuggingFace datasets-server API."""
+    """Fallback: load via HuggingFace datasets-server API.
+
+    Handles pagination (API returns max 100 rows per request) and parses
+    JSON-encoded F2P/P2P fields.
+    """
     import urllib.request
     import urllib.error
 
-    # Build the datasets-server URL
     config_part = name or "default"
-    url = (
-        f"https://datasets-server.huggingface.co/rows"
-        f"?dataset={dataset_id}&config={config_part}&split={split}"
-    )
     headers: dict[str, str] = {}
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    req = urllib.request.Request(url, headers=headers)
-    try:
-        with urllib.request.urlopen(req) as resp:
-            body = json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(
-            f"Failed to load HuggingFace dataset '{dataset_id}': {e}"
-        ) from e
+    all_rows: list[dict] = []
+    offset = 0
+    page_size = 100
 
-    # datasets-server returns { "rows": [ { "row": { ... } }, ... ] }
-    rows = body.get("rows", [])
-    return [r["row"] for r in rows]
+    while True:
+        url = (
+            f"https://datasets-server.huggingface.co/rows"
+            f"?dataset={dataset_id}&config={config_part}&split={split}"
+            f"&offset={offset}&length={page_size}"
+        )
+        req = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(req) as resp:
+                body = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as e:
+            raise RuntimeError(
+                f"Failed to load HuggingFace dataset '{dataset_id}': {e}"
+            ) from e
+
+        page_rows = body.get("rows", [])
+        if not page_rows:
+            break
+        all_rows.extend(r["row"] for r in page_rows)
+
+        if len(page_rows) < page_size:
+            break
+        offset += page_size
+
+    # Parse JSON-encoded F2P/P2P fields (same as _load_huggingface)
+    for row in all_rows:
+        for field in ("fail_to_pass", "FAIL_TO_PASS"):
+            if field in row and isinstance(row[field], str):
+                try:
+                    row[field] = json.loads(row[field])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        for field in ("pass_to_pass", "PASS_TO_PASS"):
+            if field in row and isinstance(row[field], str):
+                try:
+                    row[field] = json.loads(row[field])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+    return all_rows
 
 
 def _load_url(url: str) -> Any:

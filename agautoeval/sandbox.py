@@ -153,13 +153,10 @@ class DockerSandbox:
              f'export NVM_DIR="{NVM_DIR}" && '
              f'[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && '
              f'nvm install {min_version} && '
-             f'nvm alias default {min_version} && '
-             f'BIN_DIR=$(dirname "$(nvm which {min_version})") && '
-             f'ln -sf "$BIN_DIR/node" /usr/local/bin/node && '
-             f'ln -sf "$BIN_DIR/npm" /usr/local/bin/npm && '
-             f'ln -sf "$BIN_DIR/npx" /usr/local/bin/npx'],
+             f'nvm alias default {min_version}'],
             cwd="/", timeout=300,
         )
+        self._symlink_nvm_bins(NVM_DIR)
 
         # ── Verify ─────────────────────────────────────────────
         stdout, _, rc = self.exec(["node", "--version"], cwd="/", timeout=30)
@@ -168,6 +165,21 @@ class DockerSandbox:
             print(f"[{self._container_name}] Node.js {stdout.strip()}, npm {npm_ver.strip()}")
         else:
             raise RuntimeError("Node.js installation via nvm failed")
+
+    def _symlink_nvm_bins(self, nvm_dir: str = "/root/.nvm") -> None:
+        """Symlink all executables from the nvm default version bin dir to
+        /usr/local/bin so non-interactive docker exec shells can find them.
+        """
+        self.exec(
+            ["bash", "-c",
+             f'export NVM_DIR="{nvm_dir}" && '
+             f'[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && '
+             f'BIN_DIR=$(dirname "$(nvm which default)") && '
+             f'for f in "$BIN_DIR"/*; do '
+             f'  [ -f "$f" ] && [ -x "$f" ] && ln -sf "$f" /usr/local/bin/$(basename "$f"); '
+             f'done'],
+            cwd="/", timeout=30,
+        )
 
     def prepare(self, task: Task) -> SandboxResult:
         """Create container, set up repo (clone or use prebuilt)."""

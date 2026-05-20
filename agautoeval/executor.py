@@ -204,6 +204,9 @@ class Executor:
                     self.logger.warning(
                         f"[{task.instance_id}] install_cmd exited with code {rc}"
                     )
+                # Re-symlink nvm bins so newly installed global packages are on PATH
+                if "npm" in cmd:
+                    sb._symlink_nvm_bins()
 
             # ── Show agent version if configured ────────────────────
             if self.config.agent.version_cmd:
@@ -224,6 +227,7 @@ class Executor:
                     self.logger.warning(
                         f"[{task.instance_id}] version_cmd exited with code {rc}"
                     )
+                    time.sleep(1000)
 
             # ── Step 2: Run agent inside container ─────────────────
             self.logger.info(f"[{task.instance_id}] Running agent in container...")

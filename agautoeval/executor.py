@@ -211,13 +211,19 @@ class Executor:
                 self.logger.info(
                     f"[{task.instance_id}] Agent version: {cmd}"
                 )
-                out, _, _ = sb.exec(
+                out, err, rc = sb.exec(
                     ["bash", "-c", cmd],
                     cwd="/",
                     timeout=30,
                 )
                 if out.strip():
                     self.logger.info(f"[{task.instance_id}] {out.strip()}")
+                if err:
+                    self.logger.warning(f"[{task.instance_id}] version stderr: {err.strip()}")
+                if rc != 0:
+                    self.logger.warning(
+                        f"[{task.instance_id}] version_cmd exited with code {rc}"
+                    )
 
             # ── Step 2: Run agent inside container ─────────────────
             self.logger.info(f"[{task.instance_id}] Running agent in container...")

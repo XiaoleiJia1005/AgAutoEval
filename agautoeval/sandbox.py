@@ -51,6 +51,8 @@ class SandboxResult:
     p2p_passed: int = 0
     f2p_failures: list[str] = field(default_factory=list)
     p2p_failures: list[str] = field(default_factory=list)
+    f2p_failure_details: dict[str, str] = field(default_factory=dict)
+    p2p_failure_details: dict[str, str] = field(default_factory=dict)
 
     @property
     def resolved(self) -> bool:
@@ -437,10 +439,10 @@ class DockerSandbox:
         start = time.monotonic()
         timeout = timeout or self.timeout
 
-        f2p_passed, f2p_failures = self._run_test_list(
+        f2p_passed, f2p_failures, f2p_details = self._run_test_list(
             fail_to_pass, expect_pass=True, timeout=timeout,
         )
-        p2p_passed, p2p_failures = self._run_test_list(
+        p2p_passed, p2p_failures, p2p_details = self._run_test_list(
             pass_to_pass, expect_pass=True, timeout=timeout,
         )
 
@@ -449,15 +451,17 @@ class DockerSandbox:
 
         all_output_parts: list[str] = []
         if f2p_failures:
-            all_output_parts.append(
-                f"FAIL_TO_PASS failures ({f2p_passed}/{f2p_total}):\n"
-                + "\n".join(f"  FAIL: {t}" for t in f2p_failures)
-            )
+            parts = [f"FAIL_TO_PASS failures ({f2p_passed}/{f2p_total}):"]
+            for name in f2p_failures:
+                detail = f2p_details.get(name, "")
+                parts.append(f"  FAIL: {name}\n{detail}")
+            all_output_parts.append("\n".join(parts))
         if p2p_failures:
-            all_output_parts.append(
-                f"PASS_TO_PASS failures ({p2p_passed}/{p2p_total}):\n"
-                + "\n".join(f"  FAIL: {t}" for t in p2p_failures)
-            )
+            parts = [f"PASS_TO_PASS failures ({p2p_passed}/{p2p_total}):"]
+            for name in p2p_failures:
+                detail = p2p_details.get(name, "")
+                parts.append(f"  FAIL: {name}\n{detail}")
+            all_output_parts.append("\n".join(parts))
         if not f2p_failures and not p2p_failures:
             all_output_parts.append(
                 f"All tests passed: {f2p_total} F2P + {p2p_total} P2P"
@@ -471,7 +475,8 @@ class DockerSandbox:
             p2p_passed=p2p_passed,
             f2p_failures=f2p_failures,
             p2p_failures=p2p_failures,
-            # resolved is computed by the property
+            f2p_failure_details=f2p_details,
+            p2p_failure_details=p2p_details,
             duration=time.monotonic() - start,
         )
 
@@ -480,8 +485,10 @@ class DockerSandbox:
         tests: list[str],
         expect_pass: bool,
         timeout: int,
-    ) -> Tuple[int, list[str]]:
-        """Run a list of pytest specifiers, return (passed_count, [failed_test_names]).
+    ) -> tuple[int, list[str], dict[str, str]]:
+        """Run a list of pytest specifiers.
+
+        Returns (passed_count, [failed_test_names], {test_name: failure_output}).
 
         Handles both formats:
           - Full path:  "tests/test_foo.py::TestBar::test_baz"
@@ -489,12 +496,13 @@ class DockerSandbox:
         """
         passed = 0
         failures: list[str] = []
+        failure_details: dict[str, str] = {}
 
         for test_spec in tests:
             if "::" in test_spec or "/" in test_spec:
-                cmd = ["python", "-m", "pytest", "-q", "--tb=no", test_spec]
+                cmd = ["python", "-m", "pytest", "-q", "--tb=short", test_spec]
             else:
-                cmd = ["python", "-m", "pytest", "-q", "--tb=no", "-k", test_spec]
+                cmd = ["python", "-m", "pytest", "-q", "--tb=short", "-k", test_spec]
 
             stdout, stderr, rc = self.exec(cmd, cwd=self.repo_path, timeout=timeout)
 
@@ -502,8 +510,11 @@ class DockerSandbox:
                 passed += 1
             else:
                 failures.append(test_spec)
+                # Capture pytest output for failure reason
+                output = stdout.strip() + ("\n" + stderr.strip() if stderr.strip() else "")
+                failure_details[test_spec] = output
 
-        return passed, failures
+        return passed, failures, failure_details
 
     # ── internal helpers ───────────────────────────────────────────
 

@@ -341,21 +341,29 @@ class Executor:
             if test_res.f2p_failures:
                 self.logger.write_task_log(
                     task.instance_id, "f2p_failures.log",
-                    "\n".join(test_res.f2p_failures),
+                    "\n\n".join(
+                        f"FAIL: {n}\n{test_res.f2p_failure_details.get(n, '')}"
+                        for n in test_res.f2p_failures
+                    ),
                 )
-                self.logger.warning(
-                    f"[{task.instance_id}] F2P failures: "
-                    + ", ".join(test_res.f2p_failures)
-                )
+                for name in test_res.f2p_failures:
+                    detail = test_res.f2p_failure_details.get(name, "")
+                    self.logger.warning(
+                        f"[{task.instance_id}] F2P FAIL: {name}\n{detail}"
+                    )
             if test_res.p2p_failures:
                 self.logger.write_task_log(
                     task.instance_id, "p2p_failures.log",
-                    "\n".join(test_res.p2p_failures),
+                    "\n\n".join(
+                        f"FAIL: {n}\n{test_res.p2p_failure_details.get(n, '')}"
+                        for n in test_res.p2p_failures
+                    ),
                 )
-                self.logger.warning(
-                    f"[{task.instance_id}] P2P failures: "
-                    + ", ".join(test_res.p2p_failures)
-                )
+                for name in test_res.p2p_failures:
+                    detail = test_res.p2p_failure_details.get(name, "")
+                    self.logger.warning(
+                        f"[{task.instance_id}] P2P FAIL: {name}\n{detail}"
+                    )
 
             self.logger.info(
                 f"[{task.instance_id}] Eval: "

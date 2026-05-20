@@ -75,6 +75,7 @@ class DockerSandbox:
         cleanup_image: bool = False,
         auto_pull_image: bool = True,
         mounts: list[tuple[str, str, str]] | None = None,
+        python_bin: str = "python",
         log=print,
     ):
         self.image = image
@@ -85,6 +86,7 @@ class DockerSandbox:
         self.cleanup_image = cleanup_image
         self.auto_pull_image = auto_pull_image
         self.mounts = mounts or []
+        self.python_bin = python_bin
         self._log = log
         self._container_name: str | None = None
         self._created: bool = False
@@ -508,7 +510,7 @@ class DockerSandbox:
         if path_tests:
             # First pass: --tb=no for fast pass/fail determination
             cmd = [
-                "python", "-m", "pytest", "-v", "--tb=no",
+                self.python_bin, "-m", "pytest", "-v", "--tb=no",
                 "--continue-on-collection-errors",
             ] + path_tests
             stdout, stderr, rc = self.exec(cmd, cwd=self.repo_path, timeout=timeout)
@@ -532,7 +534,7 @@ class DockerSandbox:
             # Second pass: re-run only failures with --tb=short for details
             if failed_names:
                 detail_cmd = [
-                    "python", "-m", "pytest", "-v", "--tb=short",
+                    self.python_bin, "-m", "pytest", "-v", "--tb=short",
                     "--continue-on-collection-errors",
                 ] + list(failed_names)
                 d_stdout, d_stderr, _ = self.exec(
@@ -560,7 +562,7 @@ class DockerSandbox:
 
         # ── Run bare-name tests individually ────────────────────
         for test_spec in bare_tests:
-            cmd = ["python", "-m", "pytest", "-q", "--tb=short", "-k", test_spec]
+            cmd = [self.python_bin, "-m", "pytest", "-q", "--tb=short", "-k", test_spec]
             stdout, stderr, rc = self.exec(cmd, cwd=self.repo_path, timeout=timeout)
             if rc == 0:
                 passed += 1

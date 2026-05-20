@@ -33,6 +33,7 @@ class SandboxConfig(BaseModel):
     setup_commands: list[str] = Field(default_factory=list)
     cleanup_image: bool = False  # docker rmi after each task to save disk
     auto_pull_image: bool = True  # pull image if not present locally
+    python_bin: str = "python"  # Python binary for running pytest (e.g., conda env)
     mounts: list[MountSpec] = Field(default_factory=list)
 
     # ── template resolution ─────────────────────────────────────

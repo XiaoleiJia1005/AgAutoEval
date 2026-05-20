@@ -164,6 +164,7 @@ class Executor:
             cleanup_image=self.config.sandbox.cleanup_image,
             auto_pull_image=self.config.sandbox.auto_pull_image,
             mounts=mount_tuples,
+            python_bin=self.config.sandbox.python_bin,
             log=self.logger.info,
         )
 

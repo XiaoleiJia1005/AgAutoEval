@@ -22,6 +22,7 @@ sandbox:
     - "pip install -q opencode-cli"
   cleanup_image: false     # docker rmi after each task to save disk
   auto_pull_image: true    # auto-pull image if not present locally
+  python_bin: python       # Python binary for running pytest (e.g., conda env)
   # mounts:                # Bind mounts (optional) — persist container paths to host
   #   - host_path: "workspace"   # relative → {output.dir}/{run_id}/{id}/mounts/workspace
   #     container_path: "/workspace"

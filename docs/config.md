@@ -20,6 +20,7 @@ sandbox:
   setup_commands:          # Commands run inside container during init
     - "pip install -q opencode-cli"
   cleanup_image: false     # docker rmi after each task to save disk
+  auto_pull_image: true    # auto-pull image if not present locally
   # mounts:                # Bind mounts (optional) — persist container paths to host
   #   - host_path: "workspace"   # relative → {output.dir}/{run_id}/{id}/mounts/workspace
   #     container_path: "/workspace"
@@ -121,6 +122,21 @@ sandbox:
 ```
 
 Set `cleanup_image: true` on disk-constrained machines. Each SWE-bench image is ~2-5 GB; without cleanup they accumulate quickly with hundreds of tasks.
+
+### Image pull behavior
+
+```yaml
+sandbox:
+  auto_pull_image: true   # default: true
+```
+
+When `auto_pull_image: true` (the default), the harness checks if the resolved image exists locally via `docker image inspect`. If the image is missing, it runs `docker pull` automatically before creating the container.
+
+Set `auto_pull_image: false` to disable automatic pulling — the harness will exit with an error if the image is not found.
+
+### Docker availability check
+
+The harness checks that the `docker` CLI is installed and the daemon is reachable before processing any tasks. If Docker is missing or the daemon is down, it exits immediately with a clear error message.
 
 ## Bind Mounts
 

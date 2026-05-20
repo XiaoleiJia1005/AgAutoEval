@@ -1,0 +1,13 @@
+{
+  "instance_id": "sympy__sympy-12481",
+  "resolved": false,
+  "error": "Failed to prepare sandbox: Command '['docker', 'run', '-d', '--rm', '--name', 'agautoeval_sympy__sympy-12481', '-w', '/testbed', '-v', '/root/repos/AgAutoEval/results/20260520_155427/sympy__sympy-12481/mounts/root/.local/share:/root/.local/share/:rw', 'swebench/sweb.eval.x86_64.sympy_1776_sympy-12481', 'sleep', 'infinity']' timed out after 30 seconds",
+  "duration": 30.020987319003325,
+  "agent_duration": 0.0,
+  "f2p": null,
+  "p2p": null,
+  "timing": {
+    "prepare": 30.014576439993107,
+    "cleanup": 0.00031131198920775205
+  }
+}

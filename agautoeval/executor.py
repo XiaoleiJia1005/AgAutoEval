@@ -18,7 +18,7 @@ from tqdm import tqdm
 from agautoeval.config import Config
 from agautoeval.dataset import Task
 from agautoeval.logger import TaskLogger
-from agautoeval.sandbox import DockerSandbox
+from agautoeval.sandbox import DockerSandbox, check_docker
 
 
 class TaskResult:
@@ -73,6 +73,9 @@ class Executor:
         return datetime.now().strftime("%Y%m%d_%H%M%S")
 
     def run(self, tasks: list[Task]) -> list[TaskResult]:
+        # Fail fast if Docker is not available
+        check_docker()
+
         results: list[TaskResult] = []
         max_workers = self.config.execution.max_workers
 
@@ -151,6 +154,7 @@ class Executor:
             repo_path=self.config.sandbox.repo_path,
             setup_commands=setup_cmds,
             cleanup_image=self.config.sandbox.cleanup_image,
+            auto_pull_image=self.config.sandbox.auto_pull_image,
             mounts=mount_tuples,
         )
 

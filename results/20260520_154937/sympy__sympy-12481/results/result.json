@@ -1,0 +1,13 @@
+{
+  "instance_id": "sympy__sympy-12481",
+  "resolved": false,
+  "error": "Failed to prepare sandbox: [Errno 2] No such file or directory: 'docker'",
+  "duration": 0.005470069998409599,
+  "agent_duration": 0.0,
+  "f2p": null,
+  "p2p": null,
+  "timing": {
+    "prepare": 0.0017865169938886538,
+    "cleanup": 0.00012046900519635528
+  }
+}

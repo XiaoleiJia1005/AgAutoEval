@@ -13,12 +13,27 @@ Evaluation follows the SWE-bench protocol:
 
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Tuple
 
 from agautoeval.dataset import Task
+
+
+def check_docker() -> None:
+    """Verify Docker CLI is available and daemon is reachable. Exits if not."""
+    if shutil.which("docker") is None:
+        print("ERROR: Docker is not installed. Install Docker and try again.")
+        sys.exit(1)
+    try:
+        subprocess.run(
+            ["docker", "info"], capture_output=True, timeout=10, check=True,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        print("ERROR: Docker daemon is not running or unreachable. Start Docker and try again.")
+        sys.exit(1)
 
 
 @dataclass
@@ -56,6 +71,7 @@ class DockerSandbox:
         repo_path: str = "/repo",
         setup_commands: list[str] | None = None,
         cleanup_image: bool = False,
+        auto_pull_image: bool = True,
         mounts: list[tuple[str, str, str]] | None = None,
     ):
         self.image = image
@@ -64,11 +80,35 @@ class DockerSandbox:
         self.repo_path = repo_path
         self.setup_commands = setup_commands or []
         self.cleanup_image = cleanup_image
+        self.auto_pull_image = auto_pull_image
         self.mounts = mounts or []
         self._container_name: str | None = None
         self._created: bool = False
 
     # ── lifecycle ──────────────────────────────────────────────────
+
+    def _ensure_image(self) -> None:
+        """Check if the image exists locally; pull if configured and missing."""
+        inspect = subprocess.run(
+            ["docker", "image", "inspect", self.image],
+            capture_output=True, text=True,
+        )
+        if inspect.returncode == 0:
+            return  # image exists
+
+        if not self.auto_pull_image:
+            raise RuntimeError(
+                f"Image '{self.image}' not found locally and auto_pull_image is disabled."
+                f"\n  Pull it manually: docker pull {self.image}"
+            )
+
+        print(f"Pulling image: {self.image}")
+        result = subprocess.run(
+            ["docker", "pull", self.image],
+            capture_output=False, text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to pull image '{self.image}' (exit code {result.returncode})")
 
     def prepare(self, task: Task) -> SandboxResult:
         """Create container, set up repo (clone or use prebuilt)."""
@@ -77,6 +117,9 @@ class DockerSandbox:
         self._container_name = f"agautoeval_{task.instance_id}"
 
         try:
+            # Ensure the Docker image is available
+            self._ensure_image()
+
             # Create host directories for bind mounts
             for host_path, _container_path, _mode in self.mounts:
                 Path(host_path).mkdir(parents=True, exist_ok=True)

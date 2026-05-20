@@ -31,6 +31,7 @@ class SandboxConfig(BaseModel):
     repo_path: str = "/repo"  # path inside container where repo lives
     setup_commands: list[str] = Field(default_factory=list)
     cleanup_image: bool = False  # docker rmi after each task to save disk
+    auto_pull_image: bool = True  # pull image if not present locally
     mounts: list[MountSpec] = Field(default_factory=list)
 
     # ── template resolution ─────────────────────────────────────

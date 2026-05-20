@@ -18,6 +18,7 @@ sandbox:
   setup_commands:
     - "pip install -q pytest"
   cleanup_image: true
+  auto_pull_image: true    # auto-pull image if not present locally
 
 
 # provider: local | huggingface | url

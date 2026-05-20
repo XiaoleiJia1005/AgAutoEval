@@ -52,4 +52,5 @@ See `docs/config.md` for the full config reference. Notable sandbox fields beyon
 | `sandbox.mode` | `auto` (clone + install) or `prebuilt` (SWE-bench official images) |
 | `sandbox.repo_path` | Path inside container (`/repo` for auto, `/testbed` for prebuilt) |
 | `sandbox.cleanup_image` | `docker rmi` after each task to save disk on constrained machines |
+| `sandbox.auto_pull_image` | Auto-pull image if not present locally (default: true) |
 | `sandbox.image` | Supports `{instance_id}`, `{instance_id|split:__:0}`, `{repo}`, etc. |

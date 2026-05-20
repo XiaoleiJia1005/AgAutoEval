@@ -6,6 +6,7 @@
 agent:
   type: opencode           # Agent type (opencode | mock)
   install_cmd: ""          # Shell command to install the agent tool in the container
+  version_cmd: ""          # Shell command to show installed version (runs after install_cmd)
   command: opencode        # CLI command; supports {problem_statement} template
   env: {}                  # Extra env vars passed to the container (e.g., API keys)
   timeout: 1800            # Agent timeout (seconds)

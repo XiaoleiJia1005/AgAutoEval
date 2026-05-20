@@ -185,17 +185,39 @@ class Executor:
 
             # ── Install agent tool if configured ───────────────────
             if self.config.agent.install_cmd:
-                # Ensure runtime deps (e.g. npm) are available
-                sb.ensure_npm()
+                cmd = self.config.agent.install_cmd
+                if "npm" in cmd:
+                    sb.ensure_npm()
                 self.logger.info(
-                    f"[{task.instance_id}] Installing agent: "
-                    f"{self.config.agent.install_cmd}"
+                    f"[{task.instance_id}] Installing agent: {cmd}"
                 )
-                sb.exec(
-                    ["bash", "-c", self.config.agent.install_cmd],
+                out, err, rc = sb.exec(
+                    ["bash", "-c", cmd],
                     cwd="/",
                     timeout=600,
                 )
+                if out:
+                    self.logger.info(f"[{task.instance_id}] install: {out.strip()}")
+                if err:
+                    self.logger.warning(f"[{task.instance_id}] install stderr: {err.strip()}")
+                if rc != 0:
+                    self.logger.warning(
+                        f"[{task.instance_id}] install_cmd exited with code {rc}"
+                    )
+
+            # ── Show agent version if configured ────────────────────
+            if self.config.agent.version_cmd:
+                cmd = self.config.agent.version_cmd
+                self.logger.info(
+                    f"[{task.instance_id}] Agent version: {cmd}"
+                )
+                out, _, _ = sb.exec(
+                    ["bash", "-c", cmd],
+                    cwd="/",
+                    timeout=30,
+                )
+                if out.strip():
+                    self.logger.info(f"[{task.instance_id}] {out.strip()}")
 
             # ── Step 2: Run agent inside container ─────────────────
             self.logger.info(f"[{task.instance_id}] Running agent in container...")

@@ -4,6 +4,7 @@
 agent:
   type: opencode
   install_cmd: "npm install -g opencode-ai"
+  version_cmd: "opencode --version"
   command: "opencode run --auto -m deepseek/deepseek-v4-pro {problem_statement}"
   env:
     DEEPSEEK_API_KEY: sk-486a12b396c04b6f87ef8ee2310d2ab3

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 class AgentConfig(BaseModel):
     type: str = "opencode"
     install_cmd: str = ""
+    version_cmd: str = ""
     command: str = "opencode"
     env: dict[str, str] = Field(default_factory=dict)
     timeout: int = 1800

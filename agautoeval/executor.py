@@ -343,13 +343,20 @@ class Executor:
                     task.instance_id, "f2p_failures.log",
                     "\n".join(test_res.f2p_failures),
                 )
+                self.logger.warning(
+                    f"[{task.instance_id}] F2P failures: "
+                    + ", ".join(test_res.f2p_failures)
+                )
             if test_res.p2p_failures:
                 self.logger.write_task_log(
                     task.instance_id, "p2p_failures.log",
                     "\n".join(test_res.p2p_failures),
                 )
+                self.logger.warning(
+                    f"[{task.instance_id}] P2P failures: "
+                    + ", ".join(test_res.p2p_failures)
+                )
 
-            # ── Debug: log evaluation details ──────────────────────
             self.logger.info(
                 f"[{task.instance_id}] Eval: "
                 f"F2P={result.f2p_passed}/{result.f2p_total} "

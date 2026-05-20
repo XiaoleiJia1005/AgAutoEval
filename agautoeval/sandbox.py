@@ -490,29 +490,86 @@ class DockerSandbox:
 
         Returns (passed_count, [failed_test_names], {test_name: failure_output}).
 
-        Handles both formats:
-          - Full path:  "tests/test_foo.py::TestBar::test_baz"
-          - Bare name:  "test_baz"  → uses pytest -k
+        Runs all full-path specs together to avoid per-test collection noise,
+        then re-runs only failures individually with --tb=short for details.
         """
+        if not tests:
+            return 0, [], {}
+
         passed = 0
         failures: list[str] = []
         failure_details: dict[str, str] = {}
 
-        for test_spec in tests:
-            if "::" in test_spec or "/" in test_spec:
-                cmd = ["python", "-m", "pytest", "-q", "--tb=short", test_spec]
-            else:
-                cmd = ["python", "-m", "pytest", "-q", "--tb=short", "-k", test_spec]
+        # Separate full-path specs (:: or /) from bare -k names
+        path_tests = [t for t in tests if "::" in t or "/" in t]
+        bare_tests = [t for t in tests if t not in path_tests]
 
+        # ── Run full-path tests as a group ──────────────────────
+        if path_tests:
+            # First pass: --tb=no for fast pass/fail determination
+            cmd = [
+                "python", "-m", "pytest", "-v", "--tb=no",
+                "--continue-on-collection-errors",
+            ] + path_tests
             stdout, stderr, rc = self.exec(cmd, cwd=self.repo_path, timeout=timeout)
 
+            # Parse verbose output: "test_spec PASSED|FAILED|ERROR [ N%]"
+            failed_names = set()
+            for line in stdout.splitlines():
+                line = line.strip()
+                if "FAILED" in line or "ERROR" in line:
+                    # Extract test spec from line like "path::name FAILED [ 50%]"
+                    test_name = line.rsplit("FAILED", 1)[0].rsplit("ERROR", 1)[0].strip()
+                    if test_name:
+                        failed_names.add(test_name)
+
+            for t in path_tests:
+                if t in failed_names:
+                    failures.append(t)
+                else:
+                    passed += 1
+
+            # Second pass: re-run only failures with --tb=short for details
+            if failed_names:
+                detail_cmd = [
+                    "python", "-m", "pytest", "-v", "--tb=short",
+                    "--continue-on-collection-errors",
+                ] + list(failed_names)
+                d_stdout, d_stderr, _ = self.exec(
+                    detail_cmd, cwd=self.repo_path, timeout=timeout,
+                )
+                # Split output per test: each section starts with the test spec line
+                current_test = None
+                current_lines: list[str] = []
+                for line in d_stdout.splitlines():
+                    # Detect test result lines like "path::name FAILED [ N%]"
+                    stripped = line.strip()
+                    if any(marker in stripped for marker in (" PASSED", " FAILED", " ERROR")):
+                        if current_test and current_lines:
+                            failure_details[current_test] = "\n".join(current_lines)
+                        for marker in (" PASSED", " FAILED", " ERROR"):
+                            if marker in stripped:
+                                current_test = stripped.rsplit(marker, 1)[0].strip()
+                                break
+                        current_lines = [line]
+                    else:
+                        current_lines.append(line)
+                # Flush last test
+                if current_test and current_lines:
+                    failure_details[current_test] = "\n".join(current_lines)
+
+        # ── Run bare-name tests individually ────────────────────
+        for test_spec in bare_tests:
+            cmd = ["python", "-m", "pytest", "-q", "--tb=short", "-k", test_spec]
+            stdout, stderr, rc = self.exec(cmd, cwd=self.repo_path, timeout=timeout)
             if rc == 0:
                 passed += 1
             else:
                 failures.append(test_spec)
-                # Capture pytest output for failure reason
-                output = stdout.strip() + ("\n" + stderr.strip() if stderr.strip() else "")
-                failure_details[test_spec] = output
+                failure_details[test_spec] = (
+                    stdout.strip()
+                    + ("\n" + stderr.strip() if stderr.strip() else "")
+                )
 
         return passed, failures, failure_details
 

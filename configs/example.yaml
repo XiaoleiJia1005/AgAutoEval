@@ -3,47 +3,28 @@
 
 agent:
   type: opencode
-  command: opencode
-  env: {}
+  install_cmd: "npm install -g opencode-ai"
+  command: "opencode run --auto -m deepseek/deepseek-v4-pro {problem_statement}"
+  env:
+    DEEPSEEK_API_KEY: sk-486a12b396c04b6f87ef8ee2310d2ab3
   timeout: 1800
-  # persist:                  # Auto-mount container paths to host (optional)
-  #   - /workspace            #   → {instance_id}/mounts/workspace
-  #   - /root/.cache          #   → {instance_id}/mounts/root/.cache
+  persist:                  # Auto-mount container paths to host (optional)
+    - /root/.local/share/            #   → {instance_id}/mounts/workspace
 
-# ── Sandbox ──────────────────────────────────────────
-# mode: auto       → install git, clone repo, pip install
-# mode: prebuilt   → repo + deps already in image (official SWE-bench)
-# repo_path:       → where the repo lives inside container
-# image:           → supports template variables from task fields:
-#   {field}               → direct value
-#   {field|split:d:i}     → split by delimiter, take index
-# cleanup_image: true     → docker rmi after each task (disk-constrained machines)
 sandbox:
   mode: prebuilt
   repo_path: /testbed
   image: "swebench/sweb.eval.x86_64.{instance_id|split:__:0}_1776_{instance_id|split:__:1}"
   setup_commands:
     - "pip install -q pytest"
-  cleanup_image: false
+  cleanup_image: true
 
-  # ── Bind mounts (optional) ─────────────────────────
-  # Persist container filesystem paths to the host.
-  # host_path supports {run_id} and all task field templates.
-  # Relative paths resolve against {output.dir}/{run_id}/{instance_id}/mounts.
-  # mounts:
-  #   - host_path: "workspace"
-  #     container_path: "/workspace"
-  #     mode: rw
 
-# ── Dataset ──────────────────────────────────────────
 # provider: local | huggingface | url
 dataset:
   provider: local
   path: swe_verified.json
   type: swe_bench
-  # split: test
-  # name: null
-  # token: null
 
 execution:
   max_workers: 4

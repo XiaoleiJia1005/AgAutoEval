@@ -2,7 +2,6 @@
 
 import os
 import re
-import shlex
 import subprocess
 import time
 
@@ -24,18 +23,12 @@ class SWEAgentAgent(BaseAgent):
         timeout: int = 1800,
         install_cmd: str | None = None,
         version_cmd: str | None = None,
+        model: str = "",
+        provider: str = "",
     ):
-        super().__init__(command, env=env, timeout=timeout)
+        super().__init__(command, env=env, timeout=timeout, model=model, provider=provider)
         self.install_cmd = install_cmd or ""
         self.version_cmd = version_cmd or ""
-
-    def build_command(self, problem_statement: str) -> list[str]:
-        cmd_str = self.command
-        if "{problem_statement}" in cmd_str:
-            cmd_str = cmd_str.replace(
-                "{problem_statement}", shlex.quote(problem_statement),
-            )
-        return ["bash", "-c", cmd_str]
 
     def get_install_cmd(self) -> str | None:
         return self.install_cmd or None
@@ -44,19 +37,13 @@ class SWEAgentAgent(BaseAgent):
         return self.version_cmd or None
 
     def run(self, repo_path: str, problem_statement: str) -> AgentResult:
-        cmd_str = self.command
-        if "{problem_statement}" in cmd_str:
-            cmd_str = cmd_str.replace(
-                "{problem_statement}", shlex.quote(problem_statement),
-            )
-        cmd = ["bash", "-c", cmd_str]
-
+        cmd_str = self._resolve_command(problem_statement)
         env = {**os.environ, **self._env}
         start = time.monotonic()
 
         try:
             proc = subprocess.run(
-                cmd,
+                ["bash", "-c", cmd_str],
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
@@ -66,10 +53,8 @@ class SWEAgentAgent(BaseAgent):
             stdout = proc.stdout
             stderr = proc.stderr
 
-            patch = self._extract_patch(stdout)
-
             return AgentResult(
-                patch=patch,
+                patch=self._extract_patch(stdout),
                 stdout=stdout,
                 stderr=stderr,
                 duration=time.monotonic() - start,
@@ -90,8 +75,8 @@ class SWEAgentAgent(BaseAgent):
                 error=str(e),
             )
 
-    def _extract_patch(self, stdout: str) -> str:
-        """Extract unified diff from agent output."""
+    @staticmethod
+    def _extract_patch(stdout: str) -> str:
         m = _DIFF_RE.search(stdout)
         if m:
             return m.group(1).strip()

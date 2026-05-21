@@ -15,9 +15,9 @@ _AGENT_REGISTRY: dict[str, type[BaseAgent]] = {
 # Per-agent type keyword mapping: maps agent types to the subset of
 # AgentConfig fields their constructor accepts.
 _AGENT_CONFIG_FIELDS: dict[str, set[str]] = {
-    "opencode": {"command", "env", "timeout", "install_cmd", "version_cmd"},
-    "claude": {"command", "env", "timeout", "install_cmd", "version_cmd"},
-    "swe_agent": {"command", "env", "timeout", "install_cmd", "version_cmd"},
+    "opencode": {"command", "env", "timeout", "install_cmd", "version_cmd", "model", "provider"},
+    "claude": {"command", "env", "timeout", "install_cmd", "version_cmd", "model", "provider"},
+    "swe_agent": {"command", "env", "timeout", "install_cmd", "version_cmd", "model", "provider"},
     "mock": {"command", "env", "timeout"},
 }
 

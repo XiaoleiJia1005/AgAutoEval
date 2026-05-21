@@ -2,7 +2,6 @@
 
 import os
 import re
-import shlex
 import subprocess
 import time
 
@@ -13,12 +12,7 @@ _DIFF_RE = re.compile(r"```diff\s*\n(.*?)```", re.DOTALL)
 
 
 class OpenCodeAgent(BaseAgent):
-    """Adapter for the OpenCode CLI agent.
-
-    In container mode (primary), the executor delegates to build_command()
-    and ensure_runtime() / install logic. The standalone run() method is
-    preserved for testing without Docker.
-    """
+    """Adapter for the OpenCode CLI agent."""
 
     def __init__(
         self,
@@ -27,22 +21,12 @@ class OpenCodeAgent(BaseAgent):
         timeout: int = 1800,
         install_cmd: str | None = None,
         version_cmd: str | None = None,
+        model: str = "",
+        provider: str = "",
     ):
-        super().__init__(command, env=env, timeout=timeout)
+        super().__init__(command, env=env, timeout=timeout, model=model, provider=provider)
         self.install_cmd = install_cmd or ""
         self.version_cmd = version_cmd or ""
-
-    def build_command(self, problem_statement: str) -> list[str]:
-        """Build the docker exec command.
-
-        Resolves {problem_statement} with shell quoting and wraps in bash -c.
-        """
-        cmd_str = self.command
-        if "{problem_statement}" in cmd_str:
-            cmd_str = cmd_str.replace(
-                "{problem_statement}", shlex.quote(problem_statement),
-            )
-        return ["bash", "-c", cmd_str]
 
     def get_install_cmd(self) -> str | None:
         return self.install_cmd or None
@@ -51,28 +35,21 @@ class OpenCodeAgent(BaseAgent):
         return self.version_cmd or None
 
     def ensure_runtime(self, sandbox) -> None:
-        """Ensure npm is available before installing the agent."""
         if self.install_cmd and "npm" in self.install_cmd:
             ensure_npm(sandbox)
 
     def post_install(self, sandbox) -> None:
-        """Post-install steps (e.g., re-symlink nvm bins for npm)."""
         if self.install_cmd and "npm" in self.install_cmd:
             symlink_nvm_bins(sandbox)
 
     def run(self, repo_path: str, problem_statement: str) -> AgentResult:
-        cmd = [
-            self.command,
-            "run",
-            problem_statement,
-        ]
-
-        env = {**os.environ, **self.env}
+        cmd_str = self._resolve_command(problem_statement)
+        env = {**os.environ, **self._env}
         start = time.monotonic()
 
         try:
             proc = subprocess.run(
-                cmd,
+                ["bash", "-c", cmd_str],
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
@@ -82,10 +59,8 @@ class OpenCodeAgent(BaseAgent):
             stdout = proc.stdout
             stderr = proc.stderr
 
-            patch = self._extract_patch(stdout)
-
             return AgentResult(
-                patch=patch,
+                patch=self._extract_patch(stdout),
                 stdout=stdout,
                 stderr=stderr,
                 duration=time.monotonic() - start,
@@ -106,8 +81,8 @@ class OpenCodeAgent(BaseAgent):
                 error=str(e),
             )
 
-    def _extract_patch(self, stdout: str) -> str:
-        """Extract unified diff from agent output."""
+    @staticmethod
+    def _extract_patch(stdout: str) -> str:
         m = _DIFF_RE.search(stdout)
         if m:
             return m.group(1).strip()

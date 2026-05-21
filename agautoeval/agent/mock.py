@@ -9,7 +9,6 @@ class MockAgent(BaseAgent):
     """A mock agent that returns a hardcoded patch for testing."""
 
     def build_command(self, problem_statement: str) -> list[str]:
-        """Mock agent should not be run via container exec."""
         raise NotImplementedError("MockAgent builds no Docker command; use run() directly.")
 
     @property
@@ -20,7 +19,16 @@ class MockAgent(BaseAgent):
         start = time.monotonic()
         time.sleep(0.1)
 
-        patch = "diff --git a/calc.py b/calc.py\nindex d12ffba..4b65a37 100644\n--- a/calc.py\n+++ b/calc.py\n@@ -1,2 +1,2 @@\n def add(a, b):\n-    return a - b  # bug: should be a + b\n+    return a + b  # bug: should be a + b\n"
+        patch = (
+            "diff --git a/calc.py b/calc.py\n"
+            "index d12ffba..4b65a37 100644\n"
+            "--- a/calc.py\n"
+            "+++ b/calc.py\n"
+            "@@ -1,2 +1,2 @@\n"
+            " def add(a, b):\n"
+            "-    return a - b  # bug: should be a + b\n"
+            "+    return a + b  # bug: should be a + b\n"
+        )
 
         return AgentResult(
             patch=patch,

@@ -7,11 +7,11 @@
 
 agent:
   type: swe_agent
-  model: deepseek/deepseek-v4-pro  # optional; auto-detected from command with -m flag
+  model: deepseek-v4-pro
   provider: deepseek
   install_cmd: "pip install mini-swe-agent"
   version_cmd: "pip show mini-swe-agent | grep Version"
-  command: "mini -m {model} -t {problem_statement} -y"
+  command: "mini -m {provider}/{model} -t {problem_statement} -y"
   env:
     DEEPSEEK_API_KEY: sk-486a12b396c04b6f87ef8ee2310d2ab3
     MSWEA_COST_TRACKING: ignore_errors

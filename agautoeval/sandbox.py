@@ -241,40 +241,52 @@ class DockerSandbox:
 
     def _prepare_auto(self, task: Task, logs: dict) -> None:
         """Auto mode: install tools, clone repo, install package."""
-        install_cmd = (
-            "apt-get update -qq && apt-get install -y -qq git 2>&1 && "
-            "pip install -q pytest 2>&1"
-        )
-        for sc in self.setup_commands:
-            install_cmd += f" && {sc}"
+        self._log(f"[{self._container_name}] Installing git and pytest...")
         logs["install_tools"] = self.exec(
-            ["bash", "-c", install_cmd], cwd="/"
+            ["bash", "-c",
+             "apt-get update -qq && apt-get install -y -qq git 2>&1 && "
+             "pip install -q pytest 2>&1"],
+            cwd="/",
         )[0]
+        self._log(f"[{self._container_name}] Tools installed")
+
+        for i, sc in enumerate(self.setup_commands):
+            self._log(f"[{self._container_name}] Setup ({i+1}/{len(self.setup_commands)}): {sc}")
+            logs[f"setup_{i}"] = self.exec(
+                ["bash", "-c", sc], cwd=self.repo_path,
+            )[0]
+            self._log(f"[{self._container_name}] Setup ({i+1}/{len(self.setup_commands)}) done")
 
         if task.repo.startswith("file://") or task.repo.startswith("/"):
             self._prepare_repo_via_host(task, logs)
         else:
             self._prepare_repo_in_container(task, logs)
 
+        self._log(f"[{self._container_name}] Installing repo package...")
         logs["install_repo"] = self.exec(
             ["bash", "-c",
              f"pip install -q -e {self.repo_path} 2>&1 || pip install -q {self.repo_path} 2>&1"],
             cwd=self.repo_path,
         )[0]
+        self._log(f"[{self._container_name}] Repo package installed")
 
     def _prepare_prebuilt(self, task: Task, logs: dict) -> None:
         """Prebuilt mode: repo and deps already in image. Only apply test_patch."""
         if task.test_patch:
+            self._log(f"[{self._container_name}] Applying test patch...")
             logs["apply_test_patch"] = self.exec(
                 ["git", "apply", "-"],
                 cwd=self.repo_path, stdin=task.test_patch,
             )[0]
+            self._log(f"[{self._container_name}] Test patch applied")
         # Run any setup_commands (e.g., pip install pytest if missing)
         if self.setup_commands:
-            cmds = " && ".join(self.setup_commands)
-            logs["setup"] = self.exec(
-                ["bash", "-c", cmds], cwd=self.repo_path,
-            )[0]
+            for i, sc in enumerate(self.setup_commands):
+                self._log(f"[{self._container_name}] Setup ({i+1}/{len(self.setup_commands)}): {sc}")
+                logs[f"setup_{i}"] = self.exec(
+                    ["bash", "-c", sc], cwd=self.repo_path,
+                )[0]
+                self._log(f"[{self._container_name}] Setup ({i+1}/{len(self.setup_commands)}) done")
 
     def cleanup(self) -> None:
         """Stop container and optionally remove image."""
@@ -301,16 +313,19 @@ class DockerSandbox:
 
     def _prepare_repo_via_host(self, task: Task, logs: dict) -> None:
         import tempfile
+        self._log(f"[{self._container_name}] Cloning repo on host: {task.repo}")
         host_dir = tempfile.mkdtemp(prefix="agautoeval_")
         try:
             host_repo = str(Path(host_dir) / "repo")
             self._exec_host(["git", "clone", task.repo, host_repo], timeout=120)
+            self._log(f"[{self._container_name}] Checking out {task.base_commit[:8]}")
             self._exec_host(
                 ["git", "checkout", task.base_commit],
                 cwd=host_repo, timeout=60,
             )
             logs["clone"] = "cloned on host"
             logs["checkout"] = f"checked out {task.base_commit}"
+            self._log(f"[{self._container_name}] Copying repo to container...")
             self._exec_host(
                 ["docker", "cp", f"{host_repo}/.", f"{self._container_name}:{self.repo_path}"],
                 timeout=60,
@@ -325,13 +340,16 @@ class DockerSandbox:
             shutil.rmtree(host_dir, ignore_errors=True)
 
     def _prepare_repo_in_container(self, task: Task, logs: dict) -> None:
+        self._log(f"[{self._container_name}] Cloning repo: {task.repo}")
         clone_out = self.exec(["git", "clone", task.repo, self.repo_path], cwd="/")
         logs["clone"] = clone_out[0]
+        self._log(f"[{self._container_name}] Checking out {task.base_commit[:8]}")
         checkout_out = self.exec(
             ["git", "checkout", task.base_commit], cwd=self.repo_path,
         )
         logs["checkout"] = checkout_out[0]
         if task.test_patch:
+            self._log(f"[{self._container_name}] Applying test patch...")
             patch_out = self.exec(
                 ["git", "apply", "-"],
                 cwd=self.repo_path, stdin=task.test_patch,

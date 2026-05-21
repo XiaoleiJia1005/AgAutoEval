@@ -279,7 +279,7 @@ class DockerSandbox:
                 cwd=self.repo_path, stdin=task.test_patch,
             )[0]
             self._log(f"[{self._container_name}] Test patch applied")
-        # Run any setup_commands (e.g., pip install pytest if missing)
+        # Run any setup_commands (e.g., pip install pytest, create conda env)
         if self.setup_commands:
             for i, sc in enumerate(self.setup_commands):
                 self._log(f"[{self._container_name}] Setup ({i+1}/{len(self.setup_commands)}): {sc}")
@@ -287,6 +287,20 @@ class DockerSandbox:
                     ["bash", "-c", sc], cwd=self.repo_path,
                 )[0]
                 self._log(f"[{self._container_name}] Setup ({i+1}/{len(self.setup_commands)}) done")
+
+        # If using a non-default Python (e.g., conda env), install repo deps
+        if self.python_bin != "python":
+            self._log(
+                f"[{self._container_name}] Installing repo deps for {self.python_bin}..."
+            )
+            logs["install_repo_deps"] = self.exec(
+                ["bash", "-c",
+                 f"cd {self.repo_path} && "
+                 f"{self.python_bin} -m pip install -q -e . 2>&1 || "
+                 f"{self.python_bin} -m pip install -q . 2>&1 || true"],
+                cwd=self.repo_path,
+            )[0]
+            self._log(f"[{self._container_name}] Repo deps installed")
 
     def cleanup(self) -> None:
         """Stop container and optionally remove image."""

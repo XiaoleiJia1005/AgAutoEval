@@ -74,6 +74,8 @@ def _list_runs(base: Path) -> list[dict]:
             "run_id": d.name,
             "path": str(d),
             "agent_type": "unknown",
+            "model": "unknown",
+            "provider": "unknown",
             "instance_count": 0,
         }
 
@@ -87,6 +89,17 @@ def _list_runs(base: Path) -> list[dict]:
                     "accuracy": s.get("accuracy"),
                     "error_count": s.get("error_count"),
                     "total_duration": s.get("total_duration"),
+                    "f2p": s.get("f2p"),
+                    "p2p": s.get("p2p"),
+                })
+            meta = s.get("metadata", {})
+            if meta:
+                run_info.update({
+                    "agent_type": meta.get("agent_type", run_info["agent_type"]),
+                    "model": meta.get("model", "unknown"),
+                    "provider": meta.get("provider", "unknown"),
+                    "dataset_path": meta.get("dataset_path"),
+                    "dataset_provider": meta.get("dataset_provider"),
                 })
 
         cfg = _read_yaml(d / "config.yaml")

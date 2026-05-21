@@ -8,6 +8,14 @@ export function formatDuration(s) {
 export function agentBadge(type) {
   if (type === 'swe_agent') return 'badge-blue'
   if (type === 'claude') return 'badge-green'
+  if (type === 'opencode') return 'badge-green'
+  return 'badge-gray'
+}
+
+export function providerBadge(provider) {
+  if (provider === 'deepseek') return 'badge-blue'
+  if (provider === 'anthropic') return 'badge-green'
+  if (provider === 'openai') return 'badge-green'
   return 'badge-gray'
 }
 

@@ -10,31 +10,73 @@
     <template v-else>
       <h2>Run: <span class="mono">{{ runId }}</span></h2>
 
-      <!-- Summary bar -->
-      <div class="card" style="display: flex; gap: 32px; flex-wrap: wrap;">
-        <div>
-          <div style="color: #8b949e; font-size: 12px;">Agent</div>
-          <span class="badge" :class="agentBadge(agentType)">{{ agentType }}</span>
+      <div class="card">
+        <h3>Overview</h3>
+        <div class="summary-grid">
+          <div>
+            <div class="sum-label">Agent</div>
+            <span class="badge" :class="agentBadge(agentType)">{{ agentType }}</span>
+          </div>
+          <div v-if="meta.provider">
+            <div class="sum-label">Provider</div>
+            <span class="badge" :class="providerBadge(meta.provider)">{{ meta.provider }}</span>
+          </div>
+          <div v-if="meta.model">
+            <div class="sum-label">Model</div>
+            <span class="mono" style="font-size: 13px;">{{ meta.model }}</span>
+          </div>
+          <div v-if="meta.dataset_path">
+            <div class="sum-label">Dataset</div>
+            <span style="font-size: 13px;">{{ meta.dataset_path }}</span>
+          </div>
+          <div v-if="meta.dataset_provider">
+            <div class="sum-label">Dataset Format</div>
+            <span class="badge badge-gray">{{ meta.dataset_provider }}</span>
+          </div>
         </div>
-        <div>
-          <div style="color: #8b949e; font-size: 12px;">Instances</div>
-          <strong>{{ instances.length }}</strong>
-        </div>
-        <div v-if="summary.summary">
-          <div style="color: #8b949e; font-size: 12px;">Resolved</div>
-          <strong>{{ summary.summary.resolved }} / {{ summary.summary.total }}</strong>
-        </div>
-        <div v-if="summary.summary">
-          <div style="color: #8b949e; font-size: 12px;">Accuracy</div>
-          <strong>{{ (summary.summary.accuracy * 100).toFixed(1) }}%</strong>
-        </div>
-        <div v-if="summary.summary">
-          <div style="color: #8b949e; font-size: 12px;">Duration</div>
-          <strong>{{ formatDuration(summary.summary.total_duration) }}</strong>
+
+        <div class="summary-grid" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #30363d;">
+          <div>
+            <div class="sum-label">Instances</div>
+            <strong>{{ instances.length }}</strong>
+          </div>
+          <div>
+            <div class="sum-label">Resolved</div>
+            <strong>
+              <span class="badge badge-green">{{ sum.resolved ?? '-' }}</span>
+              /
+              <span>{{ sum.total ?? '-' }}</span>
+            </strong>
+          </div>
+          <div>
+            <div class="sum-label">Failed</div>
+            <strong>
+              <span class="badge badge-red">{{ sum.failed ?? '-' }}</span>
+            </strong>
+          </div>
+          <div>
+            <div class="sum-label">Accuracy</div>
+            <strong>{{ sum.accuracy != null ? (sum.accuracy * 100).toFixed(1) + '%' : '-' }}</strong>
+          </div>
+          <div v-if="sum.f2p">
+            <div class="sum-label">F2P</div>
+            <strong class="mono">{{ sum.f2p }}</strong>
+          </div>
+          <div v-if="sum.p2p">
+            <div class="sum-label">P2P</div>
+            <strong class="mono">{{ sum.p2p }}</strong>
+          </div>
+          <div>
+            <div class="sum-label">Total Duration</div>
+            <strong>{{ formatDuration(sum.total_duration) }}</strong>
+          </div>
+          <div>
+            <div class="sum-label">Avg / Instance</div>
+            <strong>{{ sum.avg_duration != null ? sum.avg_duration.toFixed(1) + 's' : '-' }}</strong>
+          </div>
         </div>
       </div>
 
-      <!-- Instance table -->
       <h3>Instances</h3>
       <table v-if="instances.length">
         <thead>
@@ -44,7 +86,8 @@
             <th>Result</th>
             <th>F2P</th>
             <th>P2P</th>
-            <th>Time</th>
+            <th>Agent Time</th>
+            <th>Total Time</th>
             <th>Logs</th>
             <th></th>
           </tr>
@@ -60,18 +103,19 @@
               <span v-else class="badge badge-gray">ERROR</span>
             </td>
             <td>
-              <span v-if="inst.evaluation && inst.evaluation.f2p">
+              <span v-if="inst.evaluation && inst.evaluation.f2p" class="mono" style="font-size: 11px;">
                 {{ inst.evaluation.f2p }}
               </span>
               <span v-else>-</span>
             </td>
             <td>
-              <span v-if="inst.evaluation && inst.evaluation.p2p">
+              <span v-if="inst.evaluation && inst.evaluation.p2p" class="mono" style="font-size: 11px;">
                 {{ inst.evaluation.p2p }}
               </span>
               <span v-else>-</span>
             </td>
-            <td>{{ inst.evaluation ? inst.evaluation.duration.toFixed(1) + 's' : '-' }}</td>
+            <td>{{ inst.evaluation?.agent_duration != null ? inst.evaluation.agent_duration.toFixed(1) + 's' : '-' }}</td>
+            <td>{{ inst.evaluation?.duration != null ? inst.evaluation.duration.toFixed(1) + 's' : '-' }}</td>
             <td>
               <span v-for="(size, name) in inst.logs" :key="name" class="badge badge-gray" style="margin: 1px;" :title="name + ': ' + size + ' bytes'">
                 {{ name.replace('.log', '').replace('agent_', '') }}
@@ -89,13 +133,21 @@
 
 <script>
 import { getRun } from '../api.js'
-import { formatDuration, agentBadge } from '../utils.js'
+import { formatDuration, agentBadge, providerBadge } from '../utils.js'
 
 export default {
   name: 'RunDetail',
   props: { runId: String },
   data() {
     return { summary: {}, instances: [], agentType: '', loading: true, error: '' }
+  },
+  computed: {
+    sum() {
+      return this.summary.summary || {}
+    },
+    meta() {
+      return (this.summary.summary && this.summary.summary.metadata) || {}
+    },
   },
   async created() {
     try {
@@ -109,6 +161,21 @@ export default {
       this.loading = false
     }
   },
-  methods: { formatDuration, agentBadge },
+  methods: { formatDuration, agentBadge, providerBadge },
 }
 </script>
+
+<style scoped>
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+.sum-label {
+  color: #8b949e;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+</style>

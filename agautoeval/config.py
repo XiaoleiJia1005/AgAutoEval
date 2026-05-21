@@ -11,12 +11,68 @@ from pydantic import BaseModel, Field
 
 class AgentConfig(BaseModel):
     type: str = "opencode"
+    model: str = ""
+    provider: str = ""
     install_cmd: str = ""
     version_cmd: str = ""
     command: str = "opencode"
     env: dict[str, str] = Field(default_factory=dict)
     timeout: int = 1800
     persist: list[str] = Field(default_factory=list)
+
+    def resolve_provider(self) -> str:
+        """Detect provider from model field, command, or env vars.
+
+        Order: explicit provider field → model prefix → env vars → command pattern → "unknown".
+        """
+        if self.provider:
+            return self.provider
+        if self.model:
+            return self._guess_provider(self.model)
+        return self._guess_provider(self.command)
+
+    def resolve_model(self) -> str:
+        """Detect model from explicit field or command string."""
+        if self.model:
+            return self.model
+        return self._guess_model(self.command)
+
+    @staticmethod
+    def _guess_provider(s: str) -> str:
+        import re
+        m = re.search(r"(?:-m\s+|--model\s+|model\s+)([^\s]+)", s)
+        if m:
+            model = m.group(1)
+            return AgentConfig._provider_from_model(model)
+        for key in ("DEEPSEEK", "ANTHROPIC", "OPENAI", "TOGETHER"):
+            if key in s.upper():
+                return key.lower()
+        return "unknown"
+
+    @staticmethod
+    def _guess_model(s: str) -> str:
+        import re
+        m = re.search(r"(?:-m\s+|--model\s+|model\s+)([^\s]+)", s)
+        if m:
+            return m.group(1)
+        return "unknown"
+
+    @staticmethod
+    def _provider_from_model(model: str) -> str:
+        m = model.lower()
+        if "deepseek" in m:
+            return "deepseek"
+        if "claude" in m or "anthropic" in m:
+            return "anthropic"
+        if "gpt" in m or "openai" in m or "o1" in m or "o3" in m:
+            return "openai"
+        if "gemini" in m or "google" in m:
+            return "google"
+        if "llama" in m or "meta" in m:
+            return "meta"
+        if "mistral" in m:
+            return "mistral"
+        return "unknown"
 
 
 class MountSpec(BaseModel):

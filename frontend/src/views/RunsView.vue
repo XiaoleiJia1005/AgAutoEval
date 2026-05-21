@@ -13,9 +13,12 @@
         <tr>
           <th>Run ID</th>
           <th>Agent</th>
+          <th>Provider</th>
+          <th>Model</th>
           <th>Instances</th>
           <th>Resolved</th>
           <th>Accuracy</th>
+          <th>F2P</th>
           <th>Duration</th>
           <th></th>
         </tr>
@@ -32,12 +35,24 @@
               {{ run.agent_type }}
             </span>
           </td>
+          <td>
+            <span class="badge" :class="providerBadge(run.provider)">
+              {{ run.provider }}
+            </span>
+          </td>
+          <td class="mono" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="run.model">
+            {{ run.model || '-' }}
+          </td>
           <td>{{ run.instance_count }}</td>
           <td>{{ run.resolved ?? '-' }} / {{ run.total ?? '-' }}</td>
           <td>
             <span v-if="run.accuracy != null">
               {{ (run.accuracy * 100).toFixed(1) }}%
             </span>
+            <span v-else>-</span>
+          </td>
+          <td>
+            <span v-if="run.f2p" class="mono" style="font-size: 11px;">{{ run.f2p }}</span>
             <span v-else>-</span>
           </td>
           <td>{{ formatDuration(run.total_duration) }}</td>
@@ -57,7 +72,7 @@
 
 <script>
 import { getRuns } from '../api.js'
-import { formatDuration, agentBadge } from '../utils.js'
+import { formatDuration, agentBadge, providerBadge } from '../utils.js'
 
 export default {
   name: 'RunsView',
@@ -75,6 +90,6 @@ export default {
       this.loading = false
     }
   },
-  methods: { formatDuration, agentBadge },
+  methods: { formatDuration, agentBadge, providerBadge },
 }
 </script>

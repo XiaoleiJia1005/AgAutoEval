@@ -3,6 +3,8 @@
 
 agent:
   type: opencode
+  model: deepseek/deepseek-v4-pro  # optional; auto-detected from command with -m flag
+  provider: deepseek
   install_cmd: "npm install -g opencode-ai"
   version_cmd: "opencode --version"
   command: "opencode run --dangerously-skip-permissions  -m deepseek/deepseek-v4-pro {problem_statement}"

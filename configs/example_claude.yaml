@@ -3,6 +3,8 @@
 
 agent:
   type: claude
+  model: claude-sonnet-4-6      # optional; auto-detected from command if -m present
+  provider: anthropic
   install_cmd: "npm install -g @anthropic-ai/claude-code"
   version_cmd: "claude --version"
   command: "claude --dangerously-skip-permissions -p {problem_statement} --output-format stream-json"

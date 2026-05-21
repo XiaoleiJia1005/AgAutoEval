@@ -140,7 +140,16 @@ def main(argv: list[str] | None = None):
     results = executor.run(tasks)
 
     # Score and report
-    report = compute_score(results)
+    metadata = {
+        "agent_type": config.agent.type,
+        "model": config.agent.resolve_model(),
+        "provider": config.agent.resolve_provider(),
+        "dataset_path": config.dataset.path,
+        "dataset_provider": config.dataset.provider,
+        "dataset_type": config.dataset.type,
+        "run_id": run_id,
+    }
+    report = compute_score(results, metadata=metadata)
     print_summary(report, results)
     write_json(report, results, run_dir / "results.json")
 

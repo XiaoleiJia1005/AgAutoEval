@@ -14,6 +14,8 @@ agent:
     DEEPSEEK_API_KEY: sk-486a12b396c04b6f87ef8ee2310d2ab3
     MSWEA_COST_TRACKING: ignore_errors
   timeout: 1800
+  persist:                  # Persist agent logs/messages to host
+    - /testbed/trajectories/  #   mini-swe-agent trajectory .traj files
 
 sandbox:
   mode: prebuilt

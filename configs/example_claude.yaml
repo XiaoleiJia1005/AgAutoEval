@@ -9,8 +9,9 @@ agent:
   env:
     ANTHROPIC_API_KEY: sk-ant-xxxxxxxxxxxxx
   timeout: 1800
-  persist:
-    - /root/.local/share/
+  persist:                  # Persist agent logs/messages to host
+    - /root/.claude/        #   session JSONL logs, settings, credentials
+    - /root/.claude.json    #   global config
 
 sandbox:
   mode: prebuilt

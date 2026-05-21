@@ -1,0 +1,36 @@
+# AgAutoEval Example Configuration — SWE-Agent
+# Usage: python -m agautoeval configs/example_swe_agent.yaml
+
+agent:
+  type: swe_agent
+  install_cmd: "pip install swe-agent"
+  version_cmd: "swe-agent --version"
+  command: "swe-agent run --model anthropic/claude-sonnet-4-6 --problem {problem_statement}"
+  env:
+    ANTHROPIC_API_KEY: sk-ant-xxxxxxxxxxxxx
+  timeout: 1800
+
+sandbox:
+  mode: prebuilt
+  repo_path: /testbed
+  image: "swebench/sweb.eval.x86_64.{instance_id|split:__:0}_1776_{instance_id|split:__:1}"
+  setup_commands:
+    - "conda create -n py38 python=3.8 -y -q"
+    - "/opt/miniconda3/envs/py38/bin/pip install -q pytest"
+  python_bin: "/opt/miniconda3/envs/py38/bin/python"
+  cleanup_image: true
+  auto_pull_image: true
+
+dataset:
+  provider: huggingface
+  path: SWE-bench/SWE-bench_Verified
+  type: swe_bench
+
+execution:
+  max_workers: 1
+  timeout: 3600
+  retries: 0
+
+output:
+  dir: results
+  log_level: INFO

@@ -1,4 +1,4 @@
-"""OpenCode agent adapter - wraps the opencode CLI."""
+"""Claude Code agent adapter - wraps the Anthropic Claude Code CLI."""
 
 import os
 import re
@@ -12,8 +12,8 @@ from agautoeval.agent.utils import ensure_npm, symlink_nvm_bins
 _DIFF_RE = re.compile(r"```diff\s*\n(.*?)```", re.DOTALL)
 
 
-class OpenCodeAgent(BaseAgent):
-    """Adapter for the OpenCode CLI agent.
+class ClaudeCodeAgent(BaseAgent):
+    """Adapter for the Claude Code CLI agent.
 
     In container mode (primary), the executor delegates to build_command()
     and ensure_runtime() / install logic. The standalone run() method is
@@ -33,10 +33,6 @@ class OpenCodeAgent(BaseAgent):
         self.version_cmd = version_cmd or ""
 
     def build_command(self, problem_statement: str) -> list[str]:
-        """Build the docker exec command.
-
-        Resolves {problem_statement} with shell quoting and wraps in bash -c.
-        """
         cmd_str = self.command
         if "{problem_statement}" in cmd_str:
             cmd_str = cmd_str.replace(
@@ -51,23 +47,22 @@ class OpenCodeAgent(BaseAgent):
         return self.version_cmd or None
 
     def ensure_runtime(self, sandbox) -> None:
-        """Ensure npm is available before installing the agent."""
         if self.install_cmd and "npm" in self.install_cmd:
             ensure_npm(sandbox)
 
     def post_install(self, sandbox) -> None:
-        """Post-install steps (e.g., re-symlink nvm bins for npm)."""
         if self.install_cmd and "npm" in self.install_cmd:
             symlink_nvm_bins(sandbox)
 
     def run(self, repo_path: str, problem_statement: str) -> AgentResult:
-        cmd = [
-            self.command,
-            "run",
-            problem_statement,
-        ]
+        cmd_str = self.command
+        if "{problem_statement}" in cmd_str:
+            cmd_str = cmd_str.replace(
+                "{problem_statement}", shlex.quote(problem_statement),
+            )
+        cmd = ["bash", "-c", cmd_str]
 
-        env = {**os.environ, **self.env}
+        env = {**os.environ, **self._env}
         start = time.monotonic()
 
         try:

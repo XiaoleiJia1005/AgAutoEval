@@ -1,10 +1,14 @@
 from agautoeval.agent.base import BaseAgent, AgentResult
 from agautoeval.agent.opencode import OpenCodeAgent
+from agautoeval.agent.claude import ClaudeCodeAgent
+from agautoeval.agent.swe_agent import SWEAgentAgent
 from agautoeval.agent.mock import MockAgent
 from agautoeval.config import AgentConfig
 
 _AGENT_REGISTRY: dict[str, type[BaseAgent]] = {
     "opencode": OpenCodeAgent,
+    "claude": ClaudeCodeAgent,
+    "swe_agent": SWEAgentAgent,
     "mock": MockAgent,
 }
 
@@ -12,6 +16,8 @@ _AGENT_REGISTRY: dict[str, type[BaseAgent]] = {
 # AgentConfig fields their constructor accepts.
 _AGENT_CONFIG_FIELDS: dict[str, set[str]] = {
     "opencode": {"command", "env", "timeout", "install_cmd", "version_cmd"},
+    "claude": {"command", "env", "timeout", "install_cmd", "version_cmd"},
+    "swe_agent": {"command", "env", "timeout", "install_cmd", "version_cmd"},
     "mock": {"command", "env", "timeout"},
 }
 

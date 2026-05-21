@@ -9,9 +9,9 @@ agent:
   type: swe_agent
   install_cmd: "pip install mini-swe-agent"
   version_cmd: "mini --version"
-  command: "mini -m anthropic/claude-sonnet-4-6 -t {problem_statement} -y"
+  command: "mini -m deepseek/deepseek-v4-pro -t {problem_statement} -y"
   env:
-    ANTHROPIC_API_KEY: sk-ant-xxxxxxxxxxxxx
+    DEEPSEEK_API_KEY: sk-486a12b396c04b6f87ef8ee2310d2ab3
   timeout: 1800
 
 sandbox:

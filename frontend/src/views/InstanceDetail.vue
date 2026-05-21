@@ -42,7 +42,7 @@
         </div>
         <div>
           <div style="color: #8b949e; font-size: 12px;">Messages</div>
-          <strong>{{ messageCount }}</strong>
+          <strong>{{ messages.length }}</strong>
         </div>
       </div>
 
@@ -103,6 +103,7 @@
 <script>
 import { getInstance, getMessages, getRawFile } from '../api.js'
 import MessageList from '../components/MessageList.vue'
+import { fmtSize, agentBadge } from '../utils.js'
 
 export default {
   name: 'InstanceDetail',
@@ -112,7 +113,6 @@ export default {
     return {
       info: {},
       messages: [],
-      messageCount: 0,
       patchContent: '',
       loading: true,
       msgLoading: false,
@@ -133,23 +133,16 @@ export default {
       const info = await getInstance(this.runId, this.instanceId)
       this.info = info
 
-      // Load messages
-      this.msgLoading = true
-      try {
-        const msgData = await getMessages(this.runId, this.instanceId)
-        this.messages = msgData.messages || []
-        this.messageCount = msgData.message_count || 0
-      } catch (e) {
-        console.error('Failed to load messages:', e)
-      } finally {
-        this.msgLoading = false
-      }
+      const [msgData, patchText] = await Promise.allSettled([
+        getMessages(this.runId, this.instanceId),
+        getRawFile(this.runId, this.instanceId, 'patch.diff'),
+      ])
 
-      // Preload patch
-      try {
-        this.patchContent = await getRawFile(this.runId, this.instanceId, 'patch.diff')
-      } catch (e) {
-        // Patch not available
+      if (msgData.status === 'fulfilled') {
+        this.messages = msgData.value.messages || []
+      }
+      if (patchText.status === 'fulfilled') {
+        this.patchContent = patchText.value
       }
     } catch (e) {
       this.error = `Failed to load instance: ${e.message}`
@@ -169,17 +162,8 @@ export default {
         this.logLoading = false
       }
     },
-    fmtSize(bytes) {
-      if (!bytes) return '0 B'
-      if (bytes < 1024) return `${bytes} B`
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    },
-    agentBadge(type) {
-      if (type === 'swe_agent') return 'badge-blue'
-      if (type === 'claude') return 'badge-green'
-      return 'badge-gray'
-    },
+    fmtSize,
+    agentBadge,
   },
 }
 </script>

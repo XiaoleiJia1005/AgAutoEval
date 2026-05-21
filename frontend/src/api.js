@@ -22,10 +22,8 @@ export function getMessages(runId, instanceId) {
   return fetchJSON(`/runs/${encodeURIComponent(runId)}/instances/${encodeURIComponent(instanceId)}/messages`)
 }
 
-export function getRawFile(runId, instanceId, filename) {
-  return fetch(BASE + `/runs/${encodeURIComponent(runId)}/instances/${encodeURIComponent(instanceId)}/raw/${encodeURIComponent(filename)}`)
-    .then(res => {
-      if (!res.ok) throw new Error(`${res.status}`)
-      return res.text()
-    })
+export async function getRawFile(runId, instanceId, filename) {
+  const res = await fetch(BASE + `/runs/${encodeURIComponent(runId)}/instances/${encodeURIComponent(instanceId)}/raw/${encodeURIComponent(filename)}`)
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.text()
 }

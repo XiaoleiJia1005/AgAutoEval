@@ -57,6 +57,7 @@
 
 <script>
 import { getRuns } from '../api.js'
+import { formatDuration, agentBadge } from '../utils.js'
 
 export default {
   name: 'RunsView',
@@ -74,18 +75,6 @@ export default {
       this.loading = false
     }
   },
-  methods: {
-    formatDuration(s) {
-      if (!s || s <= 0) return '-'
-      if (s < 60) return `${s.toFixed(0)}s`
-      if (s < 3600) return `${Math.floor(s / 60)}m ${Math.floor(s % 60)}s`
-      return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
-    },
-    agentBadge(type) {
-      if (type === 'swe_agent') return 'badge-blue'
-      if (type === 'claude') return 'badge-green'
-      return 'badge-gray'
-    },
-  },
+  methods: { formatDuration, agentBadge },
 }
 </script>

@@ -33,10 +33,16 @@ AgAutoEval evaluates coding agents on SWE-bench Verified. Each task gets its own
 
 Key design decisions:
 
-- **Agent abstraction**: `agent/` defines `BaseAgent` (abstract) + registry in `__init__.py`. Adding a new agent means subclassing `BaseAgent`, implementing `run()`, and registering it in `_AGENT_REGISTRY`. Agents can be used in two modes:
-  - **Standalone mode** (legacy): `BaseAgent.run()` is called on the host — useful for testing agents without Docker
-  - **Container mode** (primary): The executor builds a shell command from config and runs it inside the Docker sandbox via `sb.run_agent_command()`. This is the main path — it sidesteps the agent abstraction at runtime.
-- **Mock agent** (`agent.type: mock`) uses the task's ground-truth patch to verify the pipeline itself.
+- **Agent abstraction**: `agent/` defines `BaseAgent` (abstract) with a clear interface for building Docker commands, managing install/version steps, and ensuring runtime dependencies. The executor creates agents via the `create_agent()` factory and delegates all agent-specific behavior to the agent instance — it does not know which concrete agent type it is running. Adding a new agent means subclassing `BaseAgent`, implementing `build_command()`, and registering it in `_AGENT_REGISTRY`.
+
+  Key agent interface methods:
+  - `build_command(problem_statement)` — returns the `docker exec` command list
+  - `get_install_cmd()` / `get_version_cmd()` — tool installation and verification
+  - `ensure_runtime(sandbox)` / `post_install(sandbox)` — pre/post install hooks
+  - `get_env()` — environment variables for the agent process
+  - `is_mock` property — whether the agent is a mock (returns ground-truth patch)
+
+- **Mock agent** (`agent.type: mock`) uses the task's ground-truth patch to verify the pipeline itself. The executor checks `agent.is_mock` to decide whether to run the agent or return the ground-truth patch directly.
 - **Sandbox modes**: `auto` (clone repo, install deps from scratch) vs `prebuilt` (official SWE-bench images with everything already set up at `/testbed`).
 - **Image templates**: sandbox image strings support `{field}` and `{field|split:d:i}` syntax for per-task image resolution.
 - **Dataset providers**: `local` (JSON file), `huggingface` (HF Hub via `datasets` library or API fallback), `url` (HTTP fetch). HF stores F2P/P2P as JSON strings that get auto-parsed into lists.

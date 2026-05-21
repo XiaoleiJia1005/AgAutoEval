@@ -2,6 +2,7 @@
 
 import os
 import re
+import shlex
 import subprocess
 import time
 
@@ -11,7 +12,52 @@ _DIFF_RE = re.compile(r"```diff\s*\n(.*?)```", re.DOTALL)
 
 
 class OpenCodeAgent(BaseAgent):
-    """Adapter for the OpenCode CLI agent."""
+    """Adapter for the OpenCode CLI agent.
+
+    In container mode (primary), the executor delegates to build_command()
+    and ensure_runtime() / install logic. The standalone run() method is
+    preserved for testing without Docker.
+    """
+
+    def __init__(
+        self,
+        command: str,
+        env: dict[str, str] | None = None,
+        timeout: int = 1800,
+        install_cmd: str | None = None,
+        version_cmd: str | None = None,
+    ):
+        super().__init__(command, env=env, timeout=timeout)
+        self.install_cmd = install_cmd or ""
+        self.version_cmd = version_cmd or ""
+
+    def build_command(self, problem_statement: str) -> list[str]:
+        """Build the docker exec command.
+
+        Resolves {problem_statement} with shell quoting and wraps in bash -c.
+        """
+        cmd_str = self.command
+        if "{problem_statement}" in cmd_str:
+            cmd_str = cmd_str.replace(
+                "{problem_statement}", shlex.quote(problem_statement),
+            )
+        return ["bash", "-c", cmd_str]
+
+    def get_install_cmd(self) -> str | None:
+        return self.install_cmd or None
+
+    def get_version_cmd(self) -> str | None:
+        return self.version_cmd or None
+
+    def ensure_runtime(self, sandbox) -> None:
+        """Ensure npm is available before installing the agent."""
+        if self.install_cmd and "npm" in self.install_cmd:
+            sandbox.ensure_npm()
+
+    def post_install(self, sandbox) -> None:
+        """Post-install steps (e.g., re-symlink nvm bins for npm)."""
+        if self.install_cmd and "npm" in self.install_cmd:
+            sandbox._symlink_nvm_bins()
 
     def run(self, repo_path: str, problem_statement: str) -> AgentResult:
         cmd = [

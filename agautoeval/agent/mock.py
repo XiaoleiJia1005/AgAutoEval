@@ -8,6 +8,14 @@ from agautoeval.agent.base import AgentResult, BaseAgent
 class MockAgent(BaseAgent):
     """A mock agent that returns a hardcoded patch for testing."""
 
+    def build_command(self, problem_statement: str) -> list[str]:
+        """Mock agent should not be run via container exec."""
+        raise NotImplementedError("MockAgent builds no Docker command; use run() directly.")
+
+    @property
+    def is_mock(self) -> bool:
+        return True
+
     def run(self, repo_path: str, problem_statement: str) -> AgentResult:
         start = time.monotonic()
         time.sleep(0.1)

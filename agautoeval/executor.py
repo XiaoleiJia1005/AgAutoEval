@@ -15,6 +15,7 @@ from typing import Any
 
 from tqdm import tqdm
 
+from agautoeval.agent import create_agent
 from agautoeval.config import Config
 from agautoeval.dataset import Task
 from agautoeval.logger import TaskLogger
@@ -193,11 +194,12 @@ class Executor:
                 self._save_result(task.instance_id, result, timing)
                 return result
 
+            # ── Create agent instance ───────────────────────────────
+            agent = create_agent(self.config.agent)
+
             # ── Install agent tool if configured ───────────────────
-            if self.config.agent.install_cmd:
-                cmd = self.config.agent.install_cmd
-                if "npm" in cmd:
-                    sb.ensure_npm()
+            if cmd := agent.get_install_cmd():
+                agent.ensure_runtime(sb)
                 self.logger.info(
                     f"[{task.instance_id}] Installing agent: {cmd}"
                 )
@@ -214,13 +216,10 @@ class Executor:
                     self.logger.warning(
                         f"[{task.instance_id}] install_cmd exited with code {rc}"
                     )
-                # Re-symlink nvm bins so newly installed global packages are on PATH
-                if "npm" in cmd:
-                    sb._symlink_nvm_bins()
+                agent.post_install(sb)
 
             # ── Show agent version if configured ────────────────────
-            if self.config.agent.version_cmd:
-                cmd = self.config.agent.version_cmd
+            if cmd := agent.get_version_cmd():
                 self.logger.info(
                     f"[{task.instance_id}] Agent version: {cmd}"
                 )
@@ -241,23 +240,23 @@ class Executor:
             # ── Step 2: Run agent inside container ─────────────────
             self.logger.info(f"[{task.instance_id}] Running agent in container...")
             t0 = time.monotonic()
-            is_mock = self.config.agent.type == "mock"
+            is_mock = agent.is_mock
             if is_mock:
                 agent_stdout, agent_stderr, agent_rc, agent_dur = \
                     self._run_mock_agent(task)
             else:
-                agent_cmd = self._build_agent_cmd(task.problem_statement)
+                agent_cmd = agent.build_command(task.problem_statement)
                 self.logger.info(f"[{task.instance_id}] Agent cmd: {' '.join(agent_cmd)}")
                 # Save the exact command used
                 self.logger.write_task_json(task.instance_id, "agent_cmd.json", {
                     "command": agent_cmd,
-                    "timeout": self.config.agent.timeout,
+                    "timeout": agent.timeout,
                 })
                 agent_stdout, agent_stderr, agent_rc, agent_dur = sb.run_agent_command(
                     agent_cmd,
                     task.problem_statement,
-                    timeout=self.config.agent.timeout,
-                    env=self.config.agent.env,
+                    timeout=agent.timeout,
+                    env=agent.get_env(),
                 )
             timing["agent"] = time.monotonic() - t0
             result.agent_stdout = agent_stdout
@@ -417,20 +416,4 @@ class Executor:
         _time.sleep(0.05)
         return task.patch, "", 0, 0.05
 
-    # ── agent command construction ─────────────────────────────────
-
-    def _build_agent_cmd(self, problem_statement: str) -> list[str]:
-        """Build the agent command to run inside the container.
-
-        The command runs via bash -c. If it contains {problem_statement},
-        the template is resolved and shell-escaped.
-        """
-        import shlex
-        cmd_str = self.config.agent.command
-
-        if "{problem_statement}" in cmd_str:
-            cmd_str = cmd_str.replace(
-                "{problem_statement}", shlex.quote(problem_statement),
-            )
-        return ["bash", "-c", cmd_str]
 

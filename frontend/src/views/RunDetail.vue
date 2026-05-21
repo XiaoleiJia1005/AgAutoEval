@@ -71,7 +71,7 @@
             <strong>{{ formatDuration(sum.total_duration) }}</strong>
           </div>
           <div>
-            <div class="sum-label">Avg / Instance</div>
+            <div class="sum-label">avg agent time</div>
             <strong>{{ sum.avg_duration != null ? sum.avg_duration.toFixed(1) + 's' : '-' }}</strong>
           </div>
         </div>
@@ -146,7 +146,7 @@ export default {
       return this.summary.summary || {}
     },
     meta() {
-      return (this.summary.summary && this.summary.summary.metadata) || {}
+      return this.summary.summary?.metadata || {}
     },
   },
   async created() {

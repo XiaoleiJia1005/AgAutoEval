@@ -181,7 +181,9 @@ async def get_run(run_id: str):
     run_dir = _find_run_dir(base, run_id)
 
     config, agent_type = _read_config_and_extract_agent(run_dir)
-    summary = _read_json(run_dir / "results.json") or {}
+    data = _read_json(run_dir / "results.json") or {}
+    summary = data.get("summary", {})
+    results_list = data.get("results", [])
 
     instance_dirs = _list_instance_dirs(run_dir)
     instances = [_read_instance_info(d) for d in instance_dirs]
@@ -191,6 +193,7 @@ async def get_run(run_id: str):
         "agent_type": agent_type,
         "config": config,
         "summary": summary,
+        "results": results_list,
         "instances": instances,
     }
 

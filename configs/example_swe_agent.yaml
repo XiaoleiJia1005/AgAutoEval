@@ -12,6 +12,7 @@ agent:
   command: "mini -m deepseek/deepseek-v4-pro -t {problem_statement} -y"
   env:
     DEEPSEEK_API_KEY: sk-486a12b396c04b6f87ef8ee2310d2ab3
+    MSWEA_COST_TRACKING: ignore_errors
   timeout: 1800
 
 sandbox:

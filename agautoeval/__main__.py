@@ -2,6 +2,7 @@
 
 import argparse
 import fnmatch
+import shutil
 import sys
 from pathlib import Path
 
@@ -11,6 +12,11 @@ from agautoeval.executor import Executor
 from agautoeval.logger import TaskLogger
 from agautoeval.reporter import print_summary, write_json
 from agautoeval.scorer import compute_score
+
+
+def _resolve_dir(raw: str) -> Path:
+    """Resolve a directory path, expanding ~ to the user home."""
+    return Path(raw).expanduser().resolve()
 
 
 def main(argv: list[str] | None = None):
@@ -56,7 +62,13 @@ def main(argv: list[str] | None = None):
         "--run-id",
         type=str,
         default=None,
-        help="Run identifier for bind mount path organization (default: auto-generated timestamp)",
+        help="Run identifier (default: auto-generated timestamp)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Override the output base directory (default: ~/.agautoeval)",
     )
     args = parser.parse_args(argv)
 
@@ -64,16 +76,25 @@ def main(argv: list[str] | None = None):
     print(f"Loading config: {args.config}")
     config = load_config(args.config)
 
+    # Resolve output directory (CLI flag overrides config default)
+    output_base = _resolve_dir(args.output_dir or config.output.dir)
+    config.output.dir = str(output_base)  # push resolved path back to config
+
     # Determine run ID and create run directory
     from datetime import datetime
     run_id = args.run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = (Path(config.output.dir) / run_id).resolve()
+    run_dir = output_base / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save a copy of the config YAML for reproducibility
+    config_dest = run_dir / "config.yaml"
+    shutil.copy2(args.config, config_dest)
 
     # Setup logger
     logger = TaskLogger(run_dir, config.output.log_level)
     logger.info(f"Run directory: {run_dir}")
     logger.info(f"Run ID: {run_id}")
+    logger.info(f"Config saved to: {config_dest}")
 
     # Load dataset
     logger.info(

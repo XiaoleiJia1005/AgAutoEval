@@ -124,7 +124,7 @@ class ExecutionConfig(BaseModel):
 
 
 class OutputConfig(BaseModel):
-    dir: str = "results"
+    dir: str = "~/.agautoeval"
     log_level: str = "INFO"
 
 

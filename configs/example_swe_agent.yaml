@@ -38,6 +38,4 @@ execution:
   timeout: 3600
   retries: 0
 
-output:
-  dir: results
-  log_level: INFO
+

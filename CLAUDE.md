@@ -8,8 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install in editable mode
 pip install -e .
 
-# Run evaluation
-python -m agautoeval configs/example.yaml
+# Run evaluation (results go to ~/.agautoeval/<run_id>/ by default)
+python -m agautoeval configs/example_opencode.yaml
+
+# Custom output directory
+python -m agautoeval config.yaml --output-dir /data/results
 
 # Filter by instance IDs
 python -m agautoeval config.yaml --instances "sympy__sympy-12481,django__django-12345"
@@ -19,6 +22,25 @@ python -m agautoeval config.yaml --start 0 --end 100
 ```
 
 No test suite or linter is configured in this repo.
+
+## Output structure
+
+Results go to `<output.dir>/<run_id>/` (default: `~/.agautoeval/<run_id>/`):
+
+```
+~/.agautoeval/
+  20260521_193000/               # run_id
+    config.yaml                  # copy of the config used for this run
+    results.json                 # overall evaluation summary
+    <instance_id>/               # per-task
+      results/                   # logs, patches, evaluation output
+        task_info.json
+        patch.diff
+        agent_stdout.log
+        test_output.log
+        ...
+      mounts/                    # auto-mounts from agent.persist
+```
 
 ## Architecture
 

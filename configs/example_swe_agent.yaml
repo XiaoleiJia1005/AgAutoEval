@@ -1,11 +1,15 @@
-# AgAutoEval Example Configuration — SWE-Agent
+# AgAutoEval Example Configuration — mini-swe-agent
 # Usage: python -m agautoeval configs/example_swe_agent.yaml
+#
+# mini-swe-agent: ~100 line minimal agent scoring >74% on SWE-bench Verified
+#   CLI: mini   Package: mini-swe-agent   Repo: github.com/SWE-agent/mini-swe-agent
+#   -y = yolo mode (skip confirmations)   -m = model   -t = task description
 
 agent:
   type: swe_agent
-  install_cmd: "pip install swe-agent"
-  version_cmd: "swe-agent --version"
-  command: "swe-agent run --model anthropic/claude-sonnet-4-6 --problem {problem_statement}"
+  install_cmd: "pip install mini-swe-agent"
+  version_cmd: "mini --version"
+  command: "mini -m anthropic/claude-sonnet-4-6 -t {problem_statement} -y"
   env:
     ANTHROPIC_API_KEY: sk-ant-xxxxxxxxxxxxx
   timeout: 1800

@@ -1,6 +1,7 @@
 """CLI entry point: python -m agautoeval <config.yaml>"""
 
 import argparse
+import fnmatch
 import sys
 from pathlib import Path
 
@@ -37,7 +38,19 @@ def main(argv: list[str] | None = None):
         "--instances",
         type=str,
         default=None,
-        help="Comma-separated list of specific instance IDs to run",
+        help="Comma-separated instance IDs or glob patterns (e.g., 'sympy*')",
+    )
+    parser.add_argument(
+        "--exclude",
+        type=str,
+        default=None,
+        help="Comma-separated instance ID patterns to exclude (e.g., 'django*')",
+    )
+    parser.add_argument(
+        "--repo",
+        type=str,
+        default=None,
+        help="Filter by repo name pattern (e.g., 'sympy*', 'django/*')",
     )
     parser.add_argument(
         "--run-id",
@@ -70,12 +83,31 @@ def main(argv: list[str] | None = None):
     tasks = load_dataset(config.dataset)
     logger.info(f"Loaded {len(tasks)} tasks")
 
-    # Filter by instance IDs or slice
+    # Filter by repo pattern
+    if args.repo:
+        tasks = [t for t in tasks if fnmatch.fnmatch(t.repo, args.repo)]
+        logger.info(f"Filtered to {len(tasks)} tasks by --repo '{args.repo}'")
+
+    # Filter by instance ID patterns (supports glob wildcards)
     if args.instances:
-        wanted = set(args.instances.split(","))
-        tasks = [t for t in tasks if t.instance_id in wanted]
+        patterns = [p.strip() for p in args.instances.split(",")]
+        tasks = [
+            t for t in tasks
+            if any(fnmatch.fnmatch(t.instance_id, p) for p in patterns)
+        ]
         logger.info(f"Filtered to {len(tasks)} tasks by --instances")
-    else:
+
+    # Exclude by instance ID patterns
+    if args.exclude:
+        patterns = [p.strip() for p in args.exclude.split(",")]
+        tasks = [
+            t for t in tasks
+            if not any(fnmatch.fnmatch(t.instance_id, p) for p in patterns)
+        ]
+        logger.info(f"Filtered to {len(tasks)} tasks by --exclude")
+
+    # Slice by index
+    if not args.instances or args.start > 0 or args.end is not None:
         tasks = slice_dataset(tasks, args.start, args.end)
 
     if not tasks:

@@ -6,33 +6,100 @@
           <span class="logo-dot"></span>
           AgAutoEval
         </router-link>
-        <span class="header-badge">SWE-bench Verified</span>
+
+        <!-- Benchmark selector -->
+        <div class="benchmark-select" @click="benchOpen = !benchOpen" v-click-outside="() => benchOpen = false">
+          <span class="benchmark-label">{{ currentBenchmark.label }}</span>
+          <span class="benchmark-chevron">&#9662;</span>
+          <div v-if="benchOpen" class="benchmark-dropdown">
+            <div
+              v-for="b in benchmarks"
+              :key="b.id"
+              :class="['benchmark-item', { active: currentBenchmark.id === b.id }]"
+              @click.stop="selectBenchmark(b)"
+            >
+              <div class="benchmark-item-label">{{ b.label }}</div>
+              <div class="benchmark-item-meta">{{ b.tasks }} tasks · {{ b.lang }} · {{ b.difficulty }}</div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <!-- Main nav -->
       <nav class="header-nav">
-        <router-link to="/" class="nav-link">
-          <span class="nav-icon">&#9776;</span>
-          Runs
-        </router-link>
+        <router-link to="/" class="nav-link" active-class="active">Runs</router-link>
+        <a href="#" class="nav-link disabled">Datasets</a>
+        <a href="#" class="nav-link disabled">Agents</a>
+        <a href="#" class="nav-link disabled">Leaderboard</a>
       </nav>
+
       <div class="header-right">
         <span class="header-metric" v-if="runningCount > 0" title="Running agents">
           <span class="pulse-dot"></span>
           {{ runningCount }} running
         </span>
+        <button class="launch-btn" @click="showLaunchModal = true">
+          <span class="launch-icon">+</span>
+          Launch Run
+        </button>
       </div>
     </header>
+
     <main class="app-main">
       <router-view />
     </main>
+
+    <!-- Launch Run Modal -->
+    <LaunchRunModal v-if="showLaunchModal" @close="showLaunchModal = false" />
   </div>
 </template>
 
 <script>
+import { BENCHMARKS } from './utils.js'
+import LaunchRunModal from './components/LaunchRunModal.vue'
+
 export default {
   name: 'App',
+  components: { LaunchRunModal },
+  data() {
+    return {
+      benchOpen: false,
+      showLaunchModal: false,
+      currentBenchmark: BENCHMARKS[0],
+      benchmarks: BENCHMARKS,
+    }
+  },
   computed: {
     runningCount() {
       return 0
+    },
+  },
+  directives: {
+    'click-outside': {
+      mounted(el, binding) {
+        el._clickOutside = (e) => {
+          if (!(el === e.target || el.contains(e.target))) {
+            binding.value()
+          }
+        }
+        document.addEventListener('click', el._clickOutside)
+      },
+      unmounted(el) {
+        document.removeEventListener('click', el._clickOutside)
+      },
+    },
+  },
+  mounted() {
+    this._openLaunch = () => { this.showLaunchModal = true }
+    window.addEventListener('agautoeval:open-launch', this._openLaunch)
+  },
+  unmounted() {
+    window.removeEventListener('agautoeval:open-launch', this._openLaunch)
+  },
+  methods: {
+    selectBenchmark(b) {
+      this.currentBenchmark = b
+      this.benchOpen = false
     },
   },
 }
@@ -50,7 +117,7 @@ export default {
 .app-header {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   padding: 0 28px;
   height: 56px;
   background: rgba(13, 17, 30, 0.85);
@@ -65,7 +132,7 @@ export default {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 .app-header .logo {
   font-size: 17px;
@@ -76,6 +143,7 @@ export default {
   align-items: center;
   gap: 8px;
   letter-spacing: -0.2px;
+  flex-shrink: 0;
 }
 .logo-dot {
   width: 9px;
@@ -85,18 +153,73 @@ export default {
   box-shadow: 0 0 10px rgba(88, 166, 255, 0.5);
   display: inline-block;
 }
-.header-badge {
-  font-size: 11px;
-  padding: 3px 10px;
-  border-radius: 10px;
-  background: rgba(88, 166, 255, 0.1);
-  color: #58a6ff;
-  border: 1px solid rgba(88, 166, 255, 0.2);
+
+/* ── benchmark selector ── */
+.benchmark-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.benchmark-select:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+}
+.benchmark-label {
+  font-size: 12px;
+  color: #8b949e;
   font-weight: 500;
 }
+.benchmark-chevron {
+  font-size: 10px;
+  color: #484f58;
+}
+.benchmark-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 260px;
+  background: #161b28;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+}
+.benchmark-item {
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.benchmark-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.benchmark-item.active {
+  background: rgba(88, 166, 255, 0.1);
+}
+.benchmark-item-label {
+  font-size: 13px;
+  color: #e1e4e8;
+  font-weight: 500;
+}
+.benchmark-item-meta {
+  font-size: 11px;
+  color: #8b949e;
+  margin-top: 2px;
+}
+
+/* ── nav ── */
 .header-nav {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   flex: 1;
 }
 .nav-link {
@@ -105,26 +228,32 @@ export default {
   font-size: 13px;
   padding: 6px 14px;
   border-radius: 6px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
   transition: all 0.15s;
+  font-weight: 500;
 }
 .nav-link:hover {
   color: #e1e4e8;
   background: rgba(255, 255, 255, 0.05);
 }
-.nav-link.router-link-exact-active {
+.nav-link.active {
   color: #e1e4e8;
   background: rgba(255, 255, 255, 0.08);
 }
-.nav-icon {
-  font-size: 12px;
+.nav-link.disabled {
+  color: #484f58;
+  cursor: default;
 }
+.nav-link.disabled:hover {
+  background: none;
+  color: #484f58;
+}
+
+/* ── header right ── */
 .header-right {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 .header-metric {
   font-size: 12px;
@@ -146,6 +275,32 @@ export default {
   50% { opacity: 0.5; transform: scale(1.3); }
 }
 
+/* ── launch button ── */
+.launch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  border-radius: 8px;
+  background: rgba(88, 166, 255, 0.15);
+  border: 1px solid rgba(88, 166, 255, 0.3);
+  color: #58a6ff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.launch-btn:hover {
+  background: rgba(88, 166, 255, 0.22);
+  border-color: rgba(88, 166, 255, 0.5);
+  box-shadow: 0 0 16px rgba(88, 166, 255, 0.2);
+}
+.launch-icon {
+  font-size: 15px;
+  font-weight: 700;
+}
+
 /* ── main area ── */
 .app-main {
   flex: 1;
@@ -159,32 +314,29 @@ export default {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12px;
 }
 th {
   text-align: left;
-  padding: 10px 14px;
+  padding: 8px 12px;
   color: #8b949e;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   white-space: nowrap;
 }
 td {
-  padding: 10px 14px;
+  padding: 7px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   vertical-align: middle;
 }
 tr {
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s;
 }
 tr:hover td {
   background: rgba(255, 255, 255, 0.04);
-}
-tr:hover {
-  border-left: 3px solid rgba(88, 166, 255, 0.6);
 }
 
 /* ── shared card ── */
@@ -210,17 +362,19 @@ tr:hover {
 /* ── badges ── */
 .badge {
   display: inline-block;
-  padding: 2px 10px;
+  padding: 2px 8px;
   border-radius: 10px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.2px;
 }
-.badge-green { background: rgba(63, 185, 80, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.25); }
-.badge-red  { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid rgba(248, 81, 73, 0.25); }
-.badge-gray { background: rgba(139, 148, 158, 0.1); color: #8b949e; border: 1px solid rgba(139, 148, 158, 0.15); }
-.badge-blue { background: rgba(88, 166, 255, 0.12); color: #58a6ff; border: 1px solid rgba(88, 166, 255, 0.2); }
+.badge-green  { background: rgba(63, 185, 80, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.25); }
+.badge-red    { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid rgba(248, 81, 73, 0.25); }
+.badge-gray   { background: rgba(139, 148, 158, 0.1); color: #8b949e; border: 1px solid rgba(139, 148, 158, 0.15); }
+.badge-blue   { background: rgba(88, 166, 255, 0.12); color: #58a6ff; border: 1px solid rgba(88, 166, 255, 0.2); }
 .badge-yellow { background: rgba(210, 153, 34, 0.15); color: #d29922; border: 1px solid rgba(210, 153, 34, 0.25); }
+.badge-cyan   { background: rgba(57, 211, 204, 0.12); color: #39d2cc; border: 1px solid rgba(57, 211, 204, 0.2); }
+.badge-orange { background: rgba(219, 109, 40, 0.15); color: #db6d28; border: 1px solid rgba(219, 109, 40, 0.25); }
 
 /* ── links ── */
 .link {
@@ -261,10 +415,10 @@ h3 {
   border-radius: 3px;
   transition: width 0.3s ease;
 }
-.progress-fill.green { background: linear-gradient(90deg, #238636, #3fb950); }
+.progress-fill.green  { background: linear-gradient(90deg, #238636, #3fb950); }
 .progress-fill.yellow { background: linear-gradient(90deg, #9e6a03, #d29922); }
-.progress-fill.red { background: linear-gradient(90deg, #da3633, #f85149); }
-.progress-fill.gray { background: #30363d; }
+.progress-fill.red    { background: linear-gradient(90deg, #da3633, #f85149); }
+.progress-fill.gray   { background: #30363d; }
 
 /* ── status indicators ── */
 .status-dot {
@@ -279,11 +433,16 @@ h3 {
   height: 7px;
   border-radius: 50%;
   display: inline-block;
+  flex-shrink: 0;
 }
-.status-done::before { background: #3fb950; }
-.status-running::before { background: #3fb950; animation: pulse 1.8s ease-in-out infinite; }
-.status-failed::before { background: #f85149; }
-.status-pending::before { background: #8b949e; }
+.status-done::before         { background: #3fb950; }
+.status-running::before      { background: #3fb950; animation: pulse 1.8s ease-in-out infinite; }
+.status-provisioning::before { background: #58a6ff; animation: pulse 1.8s ease-in-out infinite; }
+.status-evaluating::before   { background: #d29922; animation: pulse 1.8s ease-in-out infinite; }
+.status-queued::before       { background: #8b949e; }
+.status-failed::before       { background: #f85149; }
+.status-timeout::before      { background: #db6d28; }
+.status-cancelled::before    { background: #484f58; }
 
 /* ── kpi card ── */
 .kpi-grid {
@@ -310,7 +469,7 @@ h3 {
   color: #8b949e;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   font-weight: 600;
 }
 .kpi-value {
@@ -319,13 +478,38 @@ h3 {
   letter-spacing: -0.5px;
   line-height: 1;
 }
-.kpi-value.green { color: #3fb950; }
-.kpi-value.blue { color: #58a6ff; }
+.kpi-value.green  { color: #3fb950; }
+.kpi-value.blue   { color: #58a6ff; }
 .kpi-value.yellow { color: #d29922; }
 .kpi-sub {
   font-size: 12px;
   color: #8b949e;
   margin-top: 6px;
+}
+.kpi-trend {
+  font-size: 11px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.kpi-trend.up   { color: #3fb950; }
+.kpi-trend.down { color: #f85149; }
+
+/* ── sparkline ── */
+.sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 28px;
+  margin-top: 8px;
+}
+.sparkline-bar {
+  flex: 1;
+  min-width: 3px;
+  border-radius: 1px 1px 0 0;
+  background: rgba(88, 166, 255, 0.3);
+  transition: height 0.3s;
 }
 
 /* ── filter chips ── */
@@ -353,13 +537,6 @@ h3 {
   background: rgba(88, 166, 255, 0.12);
   border-color: rgba(88, 166, 255, 0.3);
   color: #58a6ff;
-}
-
-/* ── divider ── */
-.section-divider {
-  border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  margin: 20px 0;
 }
 
 /* ── sortable col ── */

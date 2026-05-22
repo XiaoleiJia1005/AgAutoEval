@@ -15,17 +15,32 @@
             <span :class="['status-dot', runStatus.cls]" style="font-size: 12px;">{{ runStatus.label }}</span>
           </div>
           <h2 style="margin-bottom: 4px;"><span class="mono">{{ runId }}</span></h2>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-            <span class="badge" :class="agentBadge(agentType)">{{ agentType }}</span>
-            <span v-if="meta.provider" class="badge" :class="providerBadge(meta.provider)">{{ meta.provider }}</span>
-            <span v-if="meta.model" class="mono" style="font-size: 12px; color: #8b949e;">{{ meta.model }}</span>
-            <span class="badge badge-gray" style="font-size: 10px;">SWE-bench Verified</span>
+          <div class="dimension-row">
+            <div class="dimension-item">
+              <span class="dim-icon" v-html="dimIcon('agent')"></span>
+              <span class="badge" :class="agentBadge(agentType)">{{ agentType }}</span>
+            </div>
+            <div class="dimension-item">
+              <span class="dim-icon" v-html="dimIcon('model')"></span>
+              <span v-if="meta.provider" class="badge" :class="providerBadge(meta.provider)">{{ meta.provider }}</span>
+              <span v-if="meta.model" class="mono" style="font-size: 12px; color: #8b949e;">{{ meta.model }}</span>
+            </div>
+            <div class="dimension-item">
+              <span class="dim-icon" v-html="dimIcon('dataset')"></span>
+              <span class="badge badge-gray" style="font-size: 10px;">SWE-bench Verified</span>
+            </div>
           </div>
         </div>
-        <div v-if="sum.accuracy != null" style="text-align: right;">
-          <div style="color: #8b949e; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Accuracy</div>
-          <div :class="['kpi-value', accuracyColor(sum.accuracy)]" style="font-size: 36px;">
-            {{ (sum.accuracy * 100).toFixed(1) }}%
+        <div style="display: flex; align-items: flex-start; gap: 16px;">
+          <button class="compare-btn" @click="openCompare">
+            <span v-html="dimIcon('compare')"></span>
+            Compare Trace
+          </button>
+          <div v-if="sum.accuracy != null" style="text-align: right;">
+            <div style="color: #8b949e; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Accuracy</div>
+            <div :class="['kpi-value', accuracyColor(sum.accuracy)]" style="font-size: 36px;">
+              {{ (sum.accuracy * 100).toFixed(1) }}%
+            </div>
           </div>
         </div>
       </div>
@@ -243,7 +258,7 @@
 
 <script>
 import { getRun } from '../api.js'
-import { formatDuration, agentBadge, providerBadge, accuracyColor, statusInfo } from '../utils.js'
+import { formatDuration, agentBadge, providerBadge, accuracyColor, statusInfo, dimIcon } from '../utils.js'
 
 export default {
   name: 'RunDetail',
@@ -293,11 +308,59 @@ export default {
       this.loading = false
     }
   },
-  methods: { formatDuration, agentBadge, providerBadge, accuracyColor },
+  methods: {
+    formatDuration, agentBadge, providerBadge, accuracyColor, dimIcon,
+    openCompare() {
+      window.dispatchEvent(new CustomEvent('agautoeval:open-compare', { detail: { runId: this.runId } }))
+    },
+  },
 }
 </script>
 
 <style scoped>
+/* Dimension row */
+.dimension-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.dimension-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.dim-icon {
+  display: flex;
+  align-items: center;
+  color: #8b949e;
+  flex-shrink: 0;
+}
+
+/* Compare button */
+.compare-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: rgba(139, 148, 158, 0.08);
+  border: 1px solid rgba(139, 148, 158, 0.15);
+  color: #c9d1d9;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.compare-btn:hover {
+  border-color: rgba(88, 166, 255, 0.3);
+  background: rgba(88, 166, 255, 0.08);
+  color: #58a6ff;
+}
+.compare-btn :deep(svg) {
+  stroke: currentColor;
+}
+
 /* Timeline */
 .timeline {
   display: flex;

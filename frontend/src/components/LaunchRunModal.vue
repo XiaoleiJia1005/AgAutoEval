@@ -71,7 +71,10 @@
           <h3>Select Model</h3>
           <div style="display: flex; flex-direction: column; gap: 16px;">
             <div v-for="p in providers" :key="p.id" style="margin-bottom: 8px;">
-              <div style="font-size: 13px; font-weight: 600; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">{{ p.label }}</div>
+              <div style="font-size: 13px; font-weight: 600; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
+                <span class="provider-icon-svg" v-html="providerSvg(p.id)"></span>
+                {{ p.label }}
+              </div>
               <div class="option-grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));">
                 <div
                   v-for="m in p.models"
@@ -92,20 +95,12 @@
           <h3>Runtime Configuration</h3>
           <div class="config-grid">
             <div class="config-field">
-              <label>Max Iterations</label>
-              <input v-model.number="form.maxIterations" type="number" min="1" max="200" class="config-input" />
-            </div>
-            <div class="config-field">
               <label>Timeout (minutes)</label>
               <input v-model.number="form.timeout" type="number" min="1" max="360" class="config-input" />
             </div>
             <div class="config-field">
               <label>Parallel Workers</label>
               <input v-model.number="form.parallelism" type="number" min="1" max="64" class="config-input" />
-            </div>
-            <div class="config-field">
-              <label>Temperature</label>
-              <input v-model.number="form.temperature" type="number" min="0" max="2" step="0.1" class="config-input" />
             </div>
             <div class="config-field">
               <label>Sandbox Mode</label>
@@ -197,7 +192,7 @@
 </template>
 
 <script>
-import { BENCHMARKS, AGENT_TYPES, PROVIDERS } from '../utils.js'
+import { BENCHMARKS, AGENT_TYPES, PROVIDERS, providerSvg } from '../utils.js'
 
 export default {
   name: 'LaunchRunModal',
@@ -241,6 +236,7 @@ export default {
     },
   },
   methods: {
+    providerSvg,
     launch() {
       alert('Launch triggered!\n\n' + JSON.stringify(this.form, null, 2))
       this.$emit('close')
@@ -481,6 +477,12 @@ select.config-input { cursor: pointer; }
   background: rgba(88, 166, 255, 0.25);
   border-color: rgba(88, 166, 255, 0.5);
 }
+.provider-icon-svg {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .launch-submit {
   background: rgba(63, 185, 80, 0.15);
   border-color: rgba(63, 185, 80, 0.3);

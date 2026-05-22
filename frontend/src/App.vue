@@ -51,20 +51,30 @@
 
     <!-- Launch Run Modal -->
     <LaunchRunModal v-if="showLaunchModal" @close="showLaunchModal = false" />
+
+    <!-- Compare Modal -->
+    <CompareModal
+      v-if="showCompareModal"
+      :initialRunId="compareRunId"
+      @close="showCompareModal = false"
+    />
   </div>
 </template>
 
 <script>
 import { BENCHMARKS } from './utils.js'
 import LaunchRunModal from './components/LaunchRunModal.vue'
+import CompareModal from './components/CompareModal.vue'
 
 export default {
   name: 'App',
-  components: { LaunchRunModal },
+  components: { LaunchRunModal, CompareModal },
   data() {
     return {
       benchOpen: false,
       showLaunchModal: false,
+      showCompareModal: false,
+      compareRunId: '',
       currentBenchmark: BENCHMARKS[0],
       benchmarks: BENCHMARKS,
     }
@@ -92,9 +102,15 @@ export default {
   mounted() {
     this._openLaunch = () => { this.showLaunchModal = true }
     window.addEventListener('agautoeval:open-launch', this._openLaunch)
+    this._openCompare = (e) => {
+      this.compareRunId = e.detail?.runId || ''
+      this.showCompareModal = true
+    }
+    window.addEventListener('agautoeval:open-compare', this._openCompare)
   },
   unmounted() {
     window.removeEventListener('agautoeval:open-launch', this._openLaunch)
+    window.removeEventListener('agautoeval:open-compare', this._openCompare)
   },
   methods: {
     selectBenchmark(b) {

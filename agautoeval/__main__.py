@@ -148,6 +148,11 @@ def main(argv: list[str] | None = None):
         "dataset_provider": config.dataset.provider,
         "dataset_type": config.dataset.type,
         "run_id": run_id,
+        # Agent version tracking
+        "agent_version": config.agent.version,
+        "agent_commit": config.agent.commit,
+        "agent_prompt_version": config.agent.prompt_version,
+        "agent_tool_policy": config.agent.tool_policy,
     }
     report = compute_score(results, metadata=metadata)
     print_summary(report, results)

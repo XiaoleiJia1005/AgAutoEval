@@ -154,6 +154,11 @@ class Executor:
             "f2p_count": len(task.fail_to_pass),
             "p2p_count": len(task.pass_to_pass),
             "problem_statement": task.problem_statement,
+            # Agent version tracking
+            "agent_version": self.config.agent.version,
+            "agent_commit": self.config.agent.commit,
+            "agent_prompt_version": self.config.agent.prompt_version,
+            "agent_tool_policy": self.config.agent.tool_policy,
         })
 
         sb = DockerSandbox(
@@ -219,6 +224,7 @@ class Executor:
                 agent.post_install(sb)
 
             # ── Show agent version if configured ────────────────────
+            agent_version_output = ""
             if cmd := agent.get_version_cmd():
                 self.logger.info(
                     f"[{task.instance_id}] Agent version: {cmd}"
@@ -229,7 +235,8 @@ class Executor:
                     timeout=30,
                 )
                 if out.strip():
-                    self.logger.info(f"[{task.instance_id}] {out.strip()}")
+                    agent_version_output = out.strip()
+                    self.logger.info(f"[{task.instance_id}] {agent_version_output}")
                 if err:
                     self.logger.warning(f"[{task.instance_id}] version stderr: {err.strip()}")
                 if rc != 0:

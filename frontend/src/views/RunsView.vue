@@ -84,7 +84,7 @@
     <div v-if="runs.length" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;">
       <select v-model="filterAgent" class="filter-select">
         <option value="">All Agents</option>
-        <option v-for="a in agentOptions" :key="a" :value="a">{{ agentLabel(a) }}</option>
+        <option v-for="a in agentOptions" :key="a" :value="a">{{ a }}</option>
       </select>
       <select v-model="filterProvider" class="filter-select">
         <option value="">All Providers</option>
@@ -136,9 +136,11 @@
               </span>
             </td>
             <td>
-              <span class="badge" :class="providerBadge(run.provider)">
-                {{ providerIcon(run.provider) }} {{ run.provider }}
+              <span class="provider-cell" v-if="run.provider">
+                <span class="provider-icon-svg" v-html="providerSvg(run.provider)"></span>
+                <span class="badge" :class="providerBadge(run.provider)">{{ run.provider }}</span>
               </span>
+              <span v-else class="badge badge-gray">-</span>
             </td>
             <td class="mono" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="run.model">
               {{ run.model || '-' }}
@@ -189,7 +191,7 @@
 
 <script>
 import { getRuns } from '../api.js'
-import { formatDuration, agentBadge, providerBadge, accuracyColor, providerIcon, agentLabel, statusInfo } from '../utils.js'
+import { formatDuration, agentBadge, providerBadge, accuracyColor, providerIcon, providerSvg, agentLabel, statusInfo } from '../utils.js'
 
 export default {
   name: 'RunsView',
@@ -312,6 +314,7 @@ export default {
     accuracyColor,
     providerIcon,
     agentLabel,
+    providerSvg,
     statusInfo,
     toggleSort() {
       if (this.sortDir === 'desc') this.sortDir = 'asc'
@@ -351,6 +354,17 @@ export default {
 .accuracy-text.green { color: #3fb950; }
 .accuracy-text.yellow { color: #d29922; }
 .accuracy-text.red { color: #f85149; }
+
+.provider-cell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.provider-icon-svg {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
 
 .launch-btn-inline {
   display: flex;

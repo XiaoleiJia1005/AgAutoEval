@@ -19,6 +19,11 @@ class AgentConfig(BaseModel):
     env: dict[str, str] = Field(default_factory=dict)
     timeout: int = 1800
     persist: list[str] = Field(default_factory=list)
+    # Agent version tracking (see docs/ui_redesign_spec_0522.md §32-40)
+    version: str = ""           # e.g. "0.5.1"
+    commit: str = ""            # git commit hash
+    prompt_version: str = ""    # e.g. "planner-v2"
+    tool_policy: str = ""       # e.g. "sandboxed"
 
     def resolve_provider(self) -> str:
         """Detect provider from model field, command, or env vars.

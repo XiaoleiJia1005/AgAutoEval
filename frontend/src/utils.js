@@ -34,6 +34,21 @@ export function accuracyColor(accuracy) {
   return 'red'
 }
 
+// ── SVG Provider Icons ──
+const PROVIDER_SVG = {
+  anthropic: `<svg viewBox="0 0 24 24" fill="none" width="18" height="18"><rect width="24" height="24" rx="6" fill="rgba(212,150,111,0.15)"/><text x="12" y="17" text-anchor="middle" font-size="14" font-weight="700" fill="#d4966f">A</text></svg>`,
+  openai: `<svg viewBox="0 0 24 24" fill="none" width="18" height="18"><rect width="24" height="24" rx="6" fill="rgba(116,167,127,0.15)"/><text x="12" y="17" text-anchor="middle" font-size="14" font-weight="700" fill="#74a77f">O</text></svg>`,
+  deepseek: `<svg viewBox="0 0 24 24" fill="none" width="18" height="18"><rect width="24" height="24" rx="6" fill="rgba(88,166,255,0.15)"/><text x="12" y="17" text-anchor="middle" font-size="13" font-weight="700" fill="#58a6ff">D</text></svg>`,
+  google: `<svg viewBox="0 0 24 24" fill="none" width="18" height="18"><rect width="24" height="24" rx="6" fill="rgba(234,179,61,0.15)"/><text x="12" y="17" text-anchor="middle" font-size="13" font-weight="700" fill="#eab33d">G</text></svg>`,
+  meta: `<svg viewBox="0 0 24 24" fill="none" width="18" height="18"><rect width="24" height="24" rx="6" fill="rgba(88,166,255,0.15)"/><text x="12" y="17" text-anchor="middle" font-size="13" font-weight="700" fill="#58a6ff">M</text></svg>`,
+  mistral: `<svg viewBox="0 0 24 24" fill="none" width="18" height="18"><rect width="24" height="24" rx="6" fill="rgba(167,139,250,0.15)"/><text x="12" y="17" text-anchor="middle" font-size="12" font-weight="700" fill="#a78bfa">Mi</text></svg>`,
+}
+
+export function providerSvg(provider) {
+  const key = provider?.toLowerCase()
+  return PROVIDER_SVG[key] || `<svg viewBox="0 0 24 24" fill="none" width="18" height="18"><rect width="24" height="24" rx="6" fill="rgba(139,148,158,0.1)"/><text x="12" y="17" text-anchor="middle" font-size="13" font-weight="700" fill="#8b949e">${(provider?.charAt(0) || '?').toUpperCase()}</text></svg>`
+}
+
 export function providerIcon(provider) {
   const map = {
     anthropic: 'A',
@@ -44,6 +59,17 @@ export function providerIcon(provider) {
     mistral: 'Mi',
   }
   return map[provider?.toLowerCase()] || provider?.charAt(0)?.toUpperCase() || '?'
+}
+
+// ── Dimension icons ──
+export function dimIcon(type) {
+  const icons = {
+    agent: `<svg viewBox="0 0 20 20" fill="none" width="16" height="16"><rect x="2" y="3" width="16" height="13" rx="3" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8.5" r="2" stroke="currentColor" stroke-width="1.2"/><rect x="4" y="12" width="12" height="2" rx="1" fill="currentColor" opacity="0.4"/></svg>`,
+    model: `<svg viewBox="0 0 20 20" fill="none" width="16" height="16"><circle cx="10" cy="8" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M6 13c-1.5 1.5-2.5 3.5-2 5h12c.5-1.5-.5-3.5-2-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+    dataset: `<svg viewBox="0 0 20 20" fill="none" width="16" height="16"><rect x="3" y="2" width="14" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="2" x2="8" y2="18" stroke="currentColor" stroke-width="1.2"/><line x1="3" y1="6" x2="17" y2="6" stroke="currentColor" stroke-width="1"/><line x1="3" y1="14" x2="17" y2="14" stroke="currentColor" stroke-width="1"/></svg>`,
+    compare: `<svg viewBox="0 0 20 20" fill="none" width="16" height="16"><rect x="1" y="2" width="8" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="8" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>`,
+  }
+  return icons[type] || ''
 }
 
 export function agentLabel(type) {
@@ -57,11 +83,6 @@ export function agentLabel(type) {
 }
 
 // ── Status system ──
-// States: queued → provisioning → running → evaluating → completed
-//                                                   → failed
-//                                                   → timeout
-//                              → cancelled
-
 const STATUS_DEFS = {
   queued:       { label: 'Queued',       cls: 'status-queued',       color: '#8b949e' },
   provisioning: { label: 'Provisioning', cls: 'status-provisioning', color: '#58a6ff' },
@@ -69,12 +90,11 @@ const STATUS_DEFS = {
   evaluating:   { label: 'Evaluating',   cls: 'status-evaluating',   color: '#d29922' },
   completed:    { label: 'Completed',    cls: 'status-done',         color: '#3fb950' },
   failed:       { label: 'Failed',       cls: 'status-failed',       color: '#f85149' },
-  timeout:      { label: 'Timeout',      cls: 'status-timeout',      color: '#d29922' },
+  timeout:      { label: 'Timeout',      cls: 'status-timeout',      color: '#db6d28' },
   cancelled:    { label: 'Cancelled',    cls: 'status-cancelled',    color: '#484f58' },
 }
 
 export function statusInfo(run) {
-  // Infer status from available data
   if (run.status) return STATUS_DEFS[run.status] || STATUS_DEFS.queued
   if (run.accuracy != null && run.total > 0) return STATUS_DEFS.completed
   if (run.error_count > 0 && (run.total === 0 || run.total == null)) return STATUS_DEFS.failed

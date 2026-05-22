@@ -208,4 +208,41 @@ def load_config(path: str | Path) -> Config:
     if raw is None:
         raise ValueError(f"Config file is empty: {path}")
 
+    raw["agent"] = _merge_agent_from_store(raw.get("agent"))
     return Config.model_validate(raw)
+
+
+def _merge_agent_from_store(yaml_agent: dict[str, Any] | None) -> dict[str, Any]:
+    """Merge agents.json defaults with YAML agent overrides.
+
+    YAML can specify just ``agent: {type: opencode}`` — the rest comes from
+    the stored agent definition.  Explicit YAML fields always win.
+    For ``env`` the merge is key-level: YAML env keys override stored keys
+    while preserving stored keys not mentioned in YAML.
+    """
+    from agautoeval.agent_store import get_agent_defaults
+
+    agent_type = "opencode"
+    if yaml_agent and "type" in yaml_agent:
+        agent_type = yaml_agent["type"]
+
+    store_defaults = get_agent_defaults(agent_type)
+
+    if yaml_agent is None:
+        merged = dict(store_defaults)
+        merged["type"] = agent_type
+        return merged
+
+    merged = dict(store_defaults)
+    for key, val in yaml_agent.items():
+        if key == "env" and isinstance(val, dict):
+            merged_env = dict(merged.get("env", {}))
+            merged_env.update(val)
+            merged["env"] = merged_env
+        else:
+            merged[key] = val
+
+    if "type" not in merged:
+        merged["type"] = agent_type
+
+    return merged

@@ -117,6 +117,8 @@ export const BENCHMARKS = [
   { id: 'browser-arena', label: 'BrowserArena', tasks: 200, lang: 'Web', difficulty: 'Hard' },
 ]
 
+// DEPRECATED: agents are now loaded from /api/agents (agents.json).
+// Kept as fallback when the server is unreachable.
 export const AGENT_TYPES = [
   { id: 'opencode', label: 'OpenCode', desc: 'Tool-use agent with shell access', capabilities: ['tool-use', 'shell', 'sandboxed'] },
   { id: 'claude', label: 'Claude Agent', desc: 'Native AI agent with tool calling', capabilities: ['tool-use', 'native-agent'] },

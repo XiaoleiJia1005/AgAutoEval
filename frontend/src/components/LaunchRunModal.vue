@@ -192,7 +192,8 @@
 </template>
 
 <script>
-import { BENCHMARKS, AGENT_TYPES, PROVIDERS, providerSvg } from '../utils.js'
+import { getAgents } from '../api.js'
+import { BENCHMARKS, PROVIDERS, providerSvg } from '../utils.js'
 
 export default {
   name: 'LaunchRunModal',
@@ -202,11 +203,11 @@ export default {
       step: 0,
       steps: ['Benchmark', 'Agent', 'Model', 'Runtime', 'Options', 'Review'],
       benchmarks: BENCHMARKS,
-      agentTypes: AGENT_TYPES,
+      agentDefs: [],
       providers: PROVIDERS,
       form: {
         benchmark: BENCHMARKS[0].id,
-        agent: AGENT_TYPES[0].id,
+        agent: '',
         provider: 'anthropic',
         model: 'Claude Sonnet 4.6',
         maxIterations: 100,
@@ -223,6 +224,14 @@ export default {
     }
   },
   computed: {
+    agentTypes() {
+      return this.agentDefs.map(a => ({
+        id: a.type,
+        label: a.label,
+        desc: a.description,
+        capabilities: a.capabilities,
+      }))
+    },
     selectedBenchmark() {
       return this.benchmarks.find(b => b.id === this.form.benchmark)
     },
@@ -234,6 +243,17 @@ export default {
       const costPerTask = (this.form.provider === 'anthropic' || this.form.provider === 'openai') ? 0.28 : 0.08
       return (tasks * costPerTask).toFixed(2)
     },
+  },
+  async created() {
+    try {
+      const data = await getAgents()
+      this.agentDefs = data.agents || []
+      if (this.agentDefs.length > 0) {
+        this.form.agent = this.agentDefs[0].type
+      }
+    } catch (_) {
+      this.agentDefs = []
+    }
   },
   methods: {
     providerSvg,

@@ -210,10 +210,10 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
           <div>
             <div class="install-label">Install</div>
-            <pre class="code-block" v-if="agentDef.install_cmd"><code>{{ agentDef.install_cmd }}</code></pre>
+            <pre class="code-block" v-if="agentDef.defaults && agentDef.defaults.install_cmd"><code>{{ agentDef.defaults.install_cmd }}</code></pre>
             <pre class="code-block" v-else><code># No install command configured</code></pre>
             <div class="install-label" style="margin-top: 12px;">Usage</div>
-            <pre class="code-block" v-if="agentDef.command"><code>{{ agentDef.command.replace('{problem_statement}', '"fix failing tests"') }}</code></pre>
+            <pre class="code-block" v-if="agentDef.defaults && agentDef.defaults.command"><code>{{ agentDef.defaults.command.replace('{problem_statement}', '"fix failing tests"') }}</code></pre>
             <pre class="code-block" v-else><code># No run command configured</code></pre>
           </div>
           <div>
@@ -283,9 +283,9 @@
 </template>
 
 <script>
-import { getRuns } from '../api.js'
+import { getRuns, getAgents } from '../api.js'
 import { formatDuration, agentBadge, accuracyColor, dimIcon } from '../utils.js'
-import { AGENT_TYPES, BENCHMARKS } from '../utils.js'
+import { BENCHMARKS } from '../utils.js'
 
 export default {
   name: 'AgentDetail',
@@ -293,6 +293,7 @@ export default {
   data() {
     return {
       agent: {},
+      agentDefs: [],
       agentRuns: [],
       allRuns: [],
       loading: true,
@@ -306,7 +307,7 @@ export default {
   },
   computed: {
     agentDef() {
-      return AGENT_TYPES.find(a => a.id === this.agentId) || {}
+      return this.agentDefs.find(a => a.type === this.agentId) || {}
     },
     benchmarks() {
       return BENCHMARKS
@@ -413,10 +414,14 @@ export default {
   },
   async created() {
     try {
-      const data = await getRuns()
-      const allRuns = data.runs || []
+      const [runsData, agentsData] = await Promise.all([
+        getRuns(),
+        getAgents(),
+      ])
+      const allRuns = runsData.runs || []
       this.allRuns = allRuns
       this.agentRuns = allRuns.filter(r => r.agent_type === this.agentId)
+      this.agentDefs = agentsData.agents || []
 
       const def = this.agentDef
       const withAcc = this.agentRuns.filter(r => r.accuracy != null)
@@ -425,7 +430,7 @@ export default {
       this.agent = {
         id: this.agentId,
         label: def.label || this.agentId,
-        desc: def.desc || 'No description available.',
+        desc: def.description || 'No description available.',
         capabilities: def.capabilities || ['tool-use'],
         latestVersion: this.agentRuns[0]?.agent_version || '',
         latestAccuracy: accuracies.length ? accuracies[0] * 100 : null,

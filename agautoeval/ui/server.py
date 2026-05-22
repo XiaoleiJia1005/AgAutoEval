@@ -14,7 +14,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 
+from agautoeval.agent_store import ensure_agents_file
 from agautoeval.ui.extractors import AgentMessage, get_extractor
+
+ensure_agents_file()
 
 # Shared canonical list of per-instance log/output files
 LOG_FILES = [
@@ -167,6 +170,55 @@ def _get_persist_dir(run_dir: Path, instance_id: str) -> Path | None:
 
 
 # ── API Endpoints ──────────────────────────────────────────────────
+
+
+@app.get("/api/agents")
+async def list_agents():
+    from agautoeval.agent_store import list_agents
+    return {"agents": list_agents()}
+
+
+@app.post("/api/agents")
+async def create_agent(body: dict[str, Any]):
+    from agautoeval.agent_store import list_agents, upsert_agent
+
+    if "type" not in body:
+        raise HTTPException(400, "Agent must have a 'type' field")
+
+    existing = list_agents()
+    if any(a.get("type") == body["type"] for a in existing):
+        raise HTTPException(409, f"Agent type '{body['type']}' already exists")
+
+    if "defaults" not in body:
+        body["defaults"] = {}
+    return upsert_agent(body)
+
+
+@app.put("/api/agents/{agent_type}")
+async def update_agent(agent_type: str, body: dict[str, Any]):
+    from agautoeval.agent_store import list_agents, upsert_agent
+
+    body["type"] = agent_type
+
+    existing = list_agents()
+    if not any(a.get("type") == agent_type for a in existing):
+        raise HTTPException(404, f"Agent '{agent_type}' not found")
+
+    if "defaults" not in body:
+        body["defaults"] = {
+            "command": "", "install_cmd": "", "version_cmd": "",
+            "env": {}, "timeout": 1800, "persist": [], "model": "", "provider": "",
+        }
+    return upsert_agent(body)
+
+
+@app.delete("/api/agents/{agent_type}")
+async def delete_agent(agent_type: str):
+    from agautoeval.agent_store import delete_agent
+
+    if not delete_agent(agent_type):
+        raise HTTPException(404, f"Agent '{agent_type}' not found")
+    return {"deleted": agent_type}
 
 
 @app.get("/api/runs")

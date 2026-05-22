@@ -204,15 +204,16 @@
 </template>
 
 <script>
-import { getRuns } from '../api.js'
+import { getRuns, getAgents, createAgent } from '../api.js'
 import { agentBadge, accuracyColor, agentLabel, dimIcon } from '../utils.js'
-import { AGENT_TYPES, BENCHMARKS } from '../utils.js'
+import { BENCHMARKS } from '../utils.js'
 
 export default {
   name: 'AgentList',
   data() {
     return {
       agents: [],
+      agentDefs: [],
       allRuns: [],
       loading: true,
       error: '',
@@ -256,9 +257,13 @@ export default {
   },
   async created() {
     try {
-      const data = await getRuns()
-      const runs = data.runs || []
+      const [runsData, agentsData] = await Promise.all([
+        getRuns(),
+        getAgents(),
+      ])
+      const runs = runsData.runs || []
       this.allRuns = runs
+      this.agentDefs = agentsData.agents || []
       this.agents = this.buildAgents(runs)
     } catch (e) {
       this.error = `Failed to load agent data: ${e.message}`
@@ -278,15 +283,13 @@ export default {
       const groups = {}
       for (const r of runs) {
         const type = r.agent_type || 'unknown'
-        if (!groups[type]) {
-          groups[type] = []
-        }
+        if (!groups[type]) groups[type] = []
         groups[type].push(r)
       }
 
       const defs = {}
-      for (const a of AGENT_TYPES) {
-        defs[a.id] = a
+      for (const a of this.agentDefs) {
+        defs[a.type] = a
       }
 
       return Object.entries(groups).map(([type, agentRuns]) => {
@@ -298,8 +301,8 @@ export default {
 
         return {
           id: type,
-          label: agentLabel(type).includes(type) ? type.charAt(0).toUpperCase() + type.slice(1) : type,
-          desc: def.desc || 'No description available.',
+          label: def.label || type.charAt(0).toUpperCase() + type.slice(1),
+          desc: def.description || 'No description available.',
           capabilities: def.capabilities || ['tool-use'],
           latestAccuracy: accuracies.length ? (Math.max(...accuracies) * 100) : null,
           bestAccuracy: accuracies.length ? (Math.max(...accuracies) * 100) : null,
@@ -365,41 +368,52 @@ export default {
       if (s < 3600) return `${Math.floor(s / 60)}m ${Math.floor(s % 60)}s`
       return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
     },
-    saveAgent() {
+    async saveAgent() {
       if (!this.newAgent.type) return
       const cleanEnvs = {}
       for (const e of this.newAgent.envs) {
         if (e.key) cleanEnvs[e.key] = e.value
       }
+
       const agentDef = {
-        id: this.newAgent.type.toLowerCase().replace(/\s+/g, '_'),
+        type: this.newAgent.type.toLowerCase().replace(/\s+/g, '_'),
         label: this.newAgent.type,
-        desc: `Custom agent: ${this.newAgent.type}`,
+        description: `Custom agent: ${this.newAgent.type}`,
         capabilities: ['tool-use'],
-        install_cmd: this.newAgent.install_cmd,
-        version_cmd: this.newAgent.version_cmd,
-        run_cmd: this.newAgent.run_cmd,
-        envs: cleanEnvs,
-        persist_dirs: this.newAgent.persist_dirs.filter(Boolean),
+        defaults: {
+          install_cmd: this.newAgent.install_cmd,
+          version_cmd: this.newAgent.version_cmd,
+          command: this.newAgent.run_cmd,
+          env: cleanEnvs,
+          persist: this.newAgent.persist_dirs.filter(Boolean),
+          timeout: 1800,
+          model: '',
+          provider: '',
+        },
       }
-      // Add to in-memory agents list (would persist to backend in production)
-      this.agents.push({
-        id: agentDef.id,
-        label: agentDef.label,
-        desc: agentDef.desc,
-        capabilities: agentDef.capabilities,
-        latestAccuracy: null,
-        bestAccuracy: null,
-        latestVersion: '',
-        benchmarkCount: 0,
-        runCount: 0,
-        lastActive: 'just now',
-        lastActiveStatus: 'status-queued',
-        accuracyHistory: [],
-        _runs: [],
-      })
-      this.showAddAgent = false
-      this.newAgent = { type: '', install_cmd: '', version_cmd: '', run_cmd: '', envs: [], persist_dirs: [] }
+
+      try {
+        const saved = await createAgent(agentDef)
+        this.agents.push({
+          id: saved.type,
+          label: saved.label,
+          desc: saved.description,
+          capabilities: saved.capabilities || ['tool-use'],
+          latestAccuracy: null,
+          bestAccuracy: null,
+          latestVersion: '',
+          benchmarkCount: 0,
+          runCount: 0,
+          lastActive: 'just now',
+          lastActiveStatus: 'status-queued',
+          accuracyHistory: [],
+          _runs: [],
+        })
+        this.showAddAgent = false
+        this.newAgent = { type: '', install_cmd: '', version_cmd: '', run_cmd: '', envs: [], persist_dirs: [] }
+      } catch (e) {
+        this.error = `Failed to save agent: ${e.message}`
+      }
     },
   },
 }

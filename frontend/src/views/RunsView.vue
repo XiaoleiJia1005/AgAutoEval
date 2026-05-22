@@ -36,11 +36,11 @@
         </div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">Top Model</div>
-        <div class="kpi-value green" style="font-size: 20px;">{{ topModel }}</div>
-        <div class="kpi-sub">{{ topModelAccuracy }} accuracy</div>
-        <div class="kpi-trend up" v-if="topModelProvider">
-          <span>&#9650;</span> {{ topModelProvider }}
+        <div class="kpi-label">完成率</div>
+        <div class="kpi-value" :class="completionRateColor" style="font-size: 28px;">{{ completionRate }}</div>
+        <div class="kpi-sub">{{ completedCount }} / {{ runs.length }} runs</div>
+        <div class="kpi-trend up" v-if="runningCount > 0">
+          <span>&#9650;</span> {{ runningCount }} running
         </div>
       </div>
     </div>
@@ -280,17 +280,18 @@ export default {
       if (!withDur.length) return null
       return Math.min(...withDur.map(r => r.total_duration))
     },
-    topModel() {
-      const best = [...this.runs].filter(r => r.accuracy != null).sort((a, b) => b.accuracy - a.accuracy)[0]
-      return best ? (best.model || '?') : '-'
+    completionRate() {
+      if (!this.runs.length) return '-'
+      const pct = (this.completedCount / this.runs.length) * 100
+      return pct.toFixed(1) + '%'
     },
-    topModelAccuracy() {
-      const best = [...this.runs].filter(r => r.accuracy != null).sort((a, b) => b.accuracy - a.accuracy)[0]
-      return best ? (best.accuracy * 100).toFixed(1) + '%' : '-'
+    completionRateColor() {
+      if (!this.runs.length) return ''
+      const pct = this.completedCount / this.runs.length
+      return accuracyColor(pct)
     },
-    topModelProvider() {
-      const best = [...this.runs].filter(r => r.accuracy != null).sort((a, b) => b.accuracy - a.accuracy)[0]
-      return best?.provider || null
+    runningCount() {
+      return this.runs.filter(r => r.total == null && r.instance_count > 0).length
     },
     accuracyHistory() {
       return this.runs.filter(r => r.accuracy != null).slice(0, 10).map(r => r.accuracy).reverse()

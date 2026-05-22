@@ -6,23 +6,6 @@
           <span class="logo-dot"></span>
           AgAutoEval
         </router-link>
-
-        <!-- Benchmark selector -->
-        <div class="benchmark-select" @click="benchOpen = !benchOpen" v-click-outside="() => benchOpen = false">
-          <span class="benchmark-label">{{ currentBenchmark.label }}</span>
-          <span class="benchmark-chevron">&#9662;</span>
-          <div v-if="benchOpen" class="benchmark-dropdown">
-            <div
-              v-for="b in benchmarks"
-              :key="b.id"
-              :class="['benchmark-item', { active: currentBenchmark.id === b.id }]"
-              @click.stop="selectBenchmark(b)"
-            >
-              <div class="benchmark-item-label">{{ b.label }}</div>
-              <div class="benchmark-item-meta">{{ b.tasks }} tasks · {{ b.lang }} · {{ b.difficulty }}</div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Main nav -->
@@ -62,7 +45,6 @@
 </template>
 
 <script>
-import { BENCHMARKS } from './utils.js'
 import LaunchRunModal from './components/LaunchRunModal.vue'
 import CompareModal from './components/CompareModal.vue'
 
@@ -71,12 +53,9 @@ export default {
   components: { LaunchRunModal, CompareModal },
   data() {
     return {
-      benchOpen: false,
       showLaunchModal: false,
       showCompareModal: false,
       compareRunId: '',
-      currentBenchmark: BENCHMARKS[0],
-      benchmarks: BENCHMARKS,
     }
   },
   computed: {
@@ -112,12 +91,7 @@ export default {
     window.removeEventListener('agautoeval:open-launch', this._openLaunch)
     window.removeEventListener('agautoeval:open-compare', this._openCompare)
   },
-  methods: {
-    selectBenchmark(b) {
-      this.currentBenchmark = b
-      this.benchOpen = false
-    },
-  },
+  methods: {},
 }
 </script>
 
@@ -168,68 +142,6 @@ export default {
   background: #58a6ff;
   box-shadow: 0 0 10px rgba(88, 166, 255, 0.5);
   display: inline-block;
-}
-
-/* ── benchmark selector ── */
-.benchmark-select {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  cursor: pointer;
-  transition: all 0.15s;
-  user-select: none;
-}
-.benchmark-select:hover {
-  border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.06);
-}
-.benchmark-label {
-  font-size: 12px;
-  color: #8b949e;
-  font-weight: 500;
-}
-.benchmark-chevron {
-  font-size: 10px;
-  color: #484f58;
-}
-.benchmark-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  min-width: 260px;
-  background: #161b28;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 6px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  z-index: 100;
-}
-.benchmark-item {
-  padding: 10px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.1s;
-}
-.benchmark-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-.benchmark-item.active {
-  background: rgba(88, 166, 255, 0.1);
-}
-.benchmark-item-label {
-  font-size: 13px;
-  color: #e1e4e8;
-  font-weight: 500;
-}
-.benchmark-item-meta {
-  font-size: 11px;
-  color: #8b949e;
-  margin-top: 2px;
 }
 
 /* ── nav ── */

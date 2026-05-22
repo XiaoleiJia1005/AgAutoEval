@@ -73,8 +73,24 @@
       <!-- Benchmark History Chart -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
         <div class="panel">
-          <h3>Benchmark History</h3>
-          <p style="color: #8b949e; font-size: 12px; margin-bottom: 14px;">SWE-bench Verified — accuracy over time</p>
+          <div class="panel-header-row">
+            <h3>Benchmark History</h3>
+            <div style="display: flex; gap: 6px;">
+              <select v-model="historyBenchmark" class="mini-select" @change="updateHistory">
+                <option v-for="b in benchmarks" :key="b.id" :value="b.id">{{ b.label }}</option>
+              </select>
+              <select v-model="historyModel" class="mini-select" @change="updateHistory">
+                <option value="">All models</option>
+                <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </div>
+          </div>
+          <p style="color: #8b949e; font-size: 12px; margin-bottom: 6px;">
+            {{ agent.label }}<span v-if="historyModel"> using {{ historyModel }}</span> on {{ selectedBenchmarkLabel }}
+          </p>
+          <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <button v-for="mode in historyModes" :key="mode" :class="['toggle-btn', { active: historyMode === mode }]" @click="historyMode = mode; updateHistory()">{{ mode }}</button>
+          </div>
           <div class="chart-area" v-if="chartData.length > 0">
             <div class="bar-chart">
               <div v-for="(d, i) in chartData" :key="i" class="bar-col">
@@ -125,27 +141,41 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
         <!-- Cross-Benchmark -->
         <div class="panel">
-          <h3>Cross-Benchmark Performance</h3>
-          <table v-if="crossBenchmark.length" style="margin-top: 8px;">
-            <thead>
-              <tr>
-                <th>Benchmark</th>
-                <th>Accuracy</th>
-                <th>Avg Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="b in crossBenchmark" :key="b.name">
-                <td>{{ b.name }}</td>
-                <td>
-                  <span :class="accuracyColor(b.accuracy)" style="font-weight: 600;">
-                    {{ b.accuracy != null ? (b.accuracy * 100).toFixed(1) + '%' : '-' }}
-                  </span>
-                </td>
-                <td>{{ b.avgDuration || '-' }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="panel-header-row">
+            <h3>Cross-Benchmark Performance</h3>
+            <div style="display: flex; gap: 6px;">
+              <select v-model="crossModel" class="mini-select" @change="updateCrossBenchmark">
+                <option value="">All models</option>
+                <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
+              </select>
+              <select v-model="crossVersion" class="mini-select" @change="updateCrossBenchmark">
+                <option value="">All versions</option>
+                <option v-for="v in availableVersions" :key="v" :value="v">{{ v || 'unknown' }}</option>
+              </select>
+            </div>
+          </div>
+          <p style="color: #8b949e; font-size: 12px; margin-bottom: 10px;">
+            {{ agent.label }}<span v-if="crossVersion"> v{{ crossVersion }}</span><span v-if="crossModel"> on {{ crossModel }}</span>
+          </p>
+          <div class="chart-area" v-if="crossBenchmark.length > 0">
+            <div class="bar-chart">
+              <div v-for="(b, i) in crossBenchmark" :key="i" class="bar-col">
+                <div class="bar-val" style="font-size: 10px; color: #8b949e; margin-bottom: 2px;">
+                  {{ b.accuracy != null ? (b.accuracy * 100).toFixed(0) + '%' : '-' }}
+                </div>
+                <div class="bar-wrap">
+                  <div
+                    class="bar-fill"
+                    :class="accuracyColor(b.accuracy)"
+                    :style="{ height: Math.max(4, (b.accuracy || 0) * 100) + '%' }"
+                  ></div>
+                </div>
+                <div class="bar-label mono" style="font-size: 9px; color: #484f58; margin-top: 4px; text-align: center; line-height: 1.2;">
+                  {{ b.nameShort }}
+                </div>
+              </div>
+            </div>
+          </div>
           <div v-else style="color: #8b949e; font-size: 12px; padding: 20px 0;">Run on more benchmarks to see cross-benchmark data.</div>
         </div>
 
@@ -171,6 +201,35 @@
             </div>
           </div>
           <div v-else style="color: #8b949e; font-size: 12px; padding: 20px 0;">No runtime config available. Add details to agent config.</div>
+        </div>
+      </div>
+
+      <!-- Installation & Usage -->
+      <div class="panel" style="margin-bottom: 20px;">
+        <h3>Installation &amp; Usage</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div>
+            <div class="install-label">Install</div>
+            <pre class="code-block" v-if="agentDef.install_cmd"><code>{{ agentDef.install_cmd }}</code></pre>
+            <pre class="code-block" v-else><code># No install command configured</code></pre>
+            <div class="install-label" style="margin-top: 12px;">Usage</div>
+            <pre class="code-block" v-if="agentDef.command"><code>{{ agentDef.command.replace('{problem_statement}', '"fix failing tests"') }}</code></pre>
+            <pre class="code-block" v-else><code># No run command configured</code></pre>
+          </div>
+          <div>
+            <div class="install-label">Required Environment</div>
+            <div v-if="Object.keys(agentEnvs).length" class="env-list">
+              <div v-for="(v, k) in agentEnvs" :key="k" class="env-row">
+                <code class="env-key">{{ k }}</code>
+                <span class="env-val">{{ maskSecret(v) }}</span>
+              </div>
+            </div>
+            <div v-else style="color: #8b949e; font-size: 12px; padding: 8px 0;">No environment variables configured.</div>
+            <div class="install-label" style="margin-top: 12px;">Sandbox</div>
+            <div style="font-size: 12px; color: #c9d1d9; padding: 4px 0;">Docker</div>
+            <div class="install-label" style="margin-top: 8px;">Provider</div>
+            <div style="font-size: 12px; color: #c9d1d9; padding: 4px 0;">{{ agentDef.provider || firstRunProvider }}</div>
+          </div>
         </div>
       </div>
 
@@ -226,17 +285,52 @@
 <script>
 import { getRuns } from '../api.js'
 import { formatDuration, agentBadge, accuracyColor, dimIcon } from '../utils.js'
-import { AGENT_TYPES } from '../utils.js'
+import { AGENT_TYPES, BENCHMARKS } from '../utils.js'
 
 export default {
   name: 'AgentDetail',
   props: { agentId: String },
   data() {
-    return { agent: {}, agentRuns: [], loading: true, error: '' }
+    return {
+      agent: {},
+      agentRuns: [],
+      allRuns: [],
+      loading: true,
+      error: '',
+      historyBenchmark: 'swebench-verified',
+      historyModel: '',
+      historyMode: 'latest',
+      crossModel: '',
+      crossVersion: '',
+    }
   },
   computed: {
     agentDef() {
       return AGENT_TYPES.find(a => a.id === this.agentId) || {}
+    },
+    benchmarks() {
+      return BENCHMARKS
+    },
+    historyModes() {
+      return ['latest', 'best', 'average']
+    },
+    selectedBenchmarkLabel() {
+      const b = BENCHMARKS.find(b => b.id === this.historyBenchmark)
+      return b ? b.label : this.historyBenchmark
+    },
+    availableModels() {
+      const models = new Set()
+      for (const r of this.agentRuns) {
+        if (r.model) models.add(r.model)
+      }
+      return [...models].sort()
+    },
+    availableVersions() {
+      const versions = new Set()
+      for (const r of this.agentRuns) {
+        if (r.agent_version) versions.add(r.agent_version)
+      }
+      return [...versions].sort().reverse()
     },
     latestAccuracy() {
       const withAcc = this.agentRuns.filter(r => r.accuracy != null)
@@ -247,12 +341,13 @@ export default {
       return withAcc.length ? Math.max(...withAcc) * 100 : null
     },
     avgDuration() {
+      const runs = this.filteredRuns()
       return formatDuration(
-        this.agentRuns.reduce((s, r) => s + (r.total_duration || 0), 0) / Math.max(1, this.agentRuns.length)
+        runs.reduce((s, r) => s + (r.total_duration || 0), 0) / Math.max(1, runs.length)
       )
     },
     benchmarkCount() {
-      return 1
+      return this.allRuns.filter(r => r.dataset_name).length || 1
     },
     accuracyTrend() {
       const accs = this.agentRuns.filter(r => r.accuracy != null)
@@ -263,14 +358,7 @@ export default {
       return this.accuracyTrend >= 0 ? 'up' : 'down'
     },
     chartData() {
-      return this.agentRuns
-        .filter(r => r.accuracy != null)
-        .slice(0, 12)
-        .reverse()
-        .map(r => ({
-          accuracy: r.accuracy,
-          label: r.run_id ? r.run_id.slice(9, 15).replace('_', '') : '?',
-        }))
+      return this.buildChartData()
     },
     versionRows() {
       const groups = {}
@@ -287,17 +375,14 @@ export default {
       })).sort((a, b) => b.runCount - a.runCount)
     },
     crossBenchmark() {
-      const items = []
-      if (this.agentRuns.length) {
-        const accs = this.agentRuns.filter(r => r.accuracy != null).map(r => r.accuracy)
-        const durs = this.agentRuns.filter(r => r.total_duration > 0).map(r => r.total_duration)
-        items.push({
-          name: 'SWE-bench Verified',
-          accuracy: accs.length ? accs.reduce((s, a) => s + a, 0) / accs.length : null,
-          avgDuration: durs.length ? formatDuration(durs.reduce((s, d) => s + d, 0) / durs.length) : null,
-        })
-      }
-      return items
+      const filtered = this.filterCrossRuns()
+      const accs = filtered.filter(r => r.accuracy != null).map(r => r.accuracy)
+      return [{
+        name: 'SWE-bench Verified',
+        nameShort: 'SWE-bench',
+        accuracy: accs.length ? accs.reduce((s, a) => s + a, 0) / accs.length : null,
+        avgDuration: accs.length ? formatDuration(filtered.filter(r => r.total_duration > 0).reduce((s, r) => s + r.total_duration, 0) / filtered.filter(r => r.total_duration > 0).length || 1) : null,
+      }]
     },
     recentRuns() {
       return this.agentRuns.slice(0, 10)
@@ -311,11 +396,26 @@ export default {
     hasRuntimeConfig() {
       return true
     },
+    agentEnvs() {
+      const envs = {}
+      for (const r of this.agentRuns) {
+        if (r.envs) {
+          for (const [k, v] of Object.entries(r.envs)) {
+            envs[k] = v
+          }
+        }
+      }
+      return envs
+    },
+    firstRunProvider() {
+      return this.agentRuns.find(r => r.provider)?.provider || '-'
+    },
   },
   async created() {
     try {
       const data = await getRuns()
       const allRuns = data.runs || []
+      this.allRuns = allRuns
       this.agentRuns = allRuns.filter(r => r.agent_type === this.agentId)
 
       const def = this.agentDef
@@ -351,6 +451,60 @@ export default {
     },
     openCompare() {
       window.dispatchEvent(new CustomEvent('agautoeval:open-compare', { detail: { runId: '' } }))
+    },
+    filteredRuns() {
+      let runs = this.agentRuns
+      if (this.historyModel) {
+        runs = runs.filter(r => r.model === this.historyModel)
+      }
+      return runs
+    },
+    buildChartData() {
+      let runs = this.filteredRuns().filter(r => r.accuracy != null)
+      if (this.historyMode === 'best') {
+        const byVersion = {}
+        for (const r of runs) {
+          const v = r.agent_version || 'unknown'
+          if (!byVersion[v] || r.accuracy > byVersion[v].accuracy) byVersion[v] = r
+        }
+        runs = Object.values(byVersion)
+      } else if (this.historyMode === 'average') {
+        const byVersion = {}
+        for (const r of runs) {
+          const v = r.agent_version || 'unknown'
+          if (!byVersion[v]) byVersion[v] = { accs: [], run: r }
+          byVersion[v].accs.push(r.accuracy)
+        }
+        runs = Object.values(byVersion).map(g => ({
+          ...g.run,
+          accuracy: g.accs.reduce((s, a) => s + a, 0) / g.accs.length,
+        }))
+      }
+      return runs.slice(0, 12).reverse().map(r => ({
+        accuracy: r.accuracy,
+        label: r.run_id ? r.run_id.slice(9, 15).replace('_', '') : '?',
+      }))
+    },
+    filterCrossRuns() {
+      let runs = this.agentRuns
+      if (this.crossModel) {
+        runs = runs.filter(r => r.model === this.crossModel)
+      }
+      if (this.crossVersion) {
+        runs = runs.filter(r => r.agent_version === this.crossVersion)
+      }
+      return runs
+    },
+    updateHistory() {
+      // Triggered by selector changes — chartData recomputed reactively
+    },
+    updateCrossBenchmark() {
+      // Triggered by selector changes — crossBenchmark recomputed reactively
+    },
+    maskSecret(val) {
+      if (!val) return '-'
+      if (val.length <= 8) return '••••'
+      return val.slice(0, 4) + '••••' + val.slice(-4)
     },
   },
 }
@@ -491,4 +645,109 @@ export default {
   color: #58a6ff;
 }
 .compare-btn :deep(svg) { stroke: currentColor; }
+
+/* Panel header row */
+.panel-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.panel-header-row h3 {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+/* Mini selectors */
+.mini-select {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #8b949e;
+  font-size: 11px;
+  cursor: pointer;
+  max-width: 160px;
+}
+.mini-select:focus {
+  outline: none;
+  border-color: rgba(88, 166, 255, 0.3);
+  color: #e1e4e8;
+}
+
+/* Toggle buttons */
+.toggle-btn {
+  padding: 3px 10px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: #8b949e;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  text-transform: capitalize;
+  transition: all 0.15s;
+}
+.toggle-btn:hover {
+  border-color: rgba(255,255,255,0.12);
+  color: #c9d1d9;
+}
+.toggle-btn.active {
+  background: rgba(88, 166, 255, 0.12);
+  border-color: rgba(88, 166, 255, 0.3);
+  color: #58a6ff;
+}
+
+/* Installation & Usage */
+.install-label {
+  font-size: 10px;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.code-block {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #c9d1d9;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+.code-block code {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12px;
+  background: none;
+  padding: 0;
+}
+.env-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.env-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.env-key {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: #58a6ff;
+  background: rgba(88, 166, 255, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.env-val {
+  font-size: 11px;
+  color: #8b949e;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
 </style>

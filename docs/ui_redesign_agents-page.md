@@ -75,6 +75,13 @@ swe_agent
 [sandboxed]
 [planner]
 ```
+支持新增agent
+type:
+install_cmd:
+version_cmd:
+run_cmd:
+envs: key-value pairs
+persist_dirs: string list
 
 ---
 
@@ -190,13 +197,13 @@ Accuracy
 支持：
 
 ```text
-单个 agent 在某个 benchmark 上的历史表现
+当前 agent 在某个 benchmark 使用某个model 上的历史表现， benchmark和model
 ```
 
 例如：
 
 ```text
-OpenCode on SWE-bench Verified
+OpenCode using deepseek-v4-pro on SWE-bench Verified
 ```
 
 折线图：
@@ -217,6 +224,8 @@ Y轴：
 accuracy
 ```
 
+卡片右上角支持选择benchmark 和 model
+
 建议支持：
 
 - latest run
@@ -232,8 +241,8 @@ accuracy
 展示：
 
 ```text
-同一个 agent
-在多个 benchmark 上的表现
+当前 agent 指定版本使用指定model时
+在多个 benchmark 上的表现，model 和 版本号可变。柱状图
 ```
 
 例如：
@@ -329,7 +338,7 @@ Planner:
 ---
 
 # 十一、Installation & Usage（推荐）
-
+这个似乎没有做，请添加。
 非常建议支持：
 
 ```text
@@ -438,6 +447,7 @@ View Run
 
 # 十五、Agent Compare（重要）
 
+该页面放到agents list页面。用户选择两个agent后，benchmark，model保持一致但作为变量允许用户选择。
 支持：
 
 ```text

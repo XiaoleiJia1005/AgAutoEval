@@ -29,7 +29,7 @@
       <nav class="header-nav">
         <router-link to="/" class="nav-link" active-class="active">Runs</router-link>
         <a href="#" class="nav-link disabled">Datasets</a>
-        <a href="#" class="nav-link disabled">Agents</a>
+        <router-link to="/agents" class="nav-link" active-class="active">Agents</router-link>
         <a href="#" class="nav-link disabled">Leaderboard</a>
       </nav>
 
